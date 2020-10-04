@@ -1,5 +1,7 @@
 from taxonomy.models import Taxonomy, TermParent, TermElement, Term
 from collections import namedtuple
+from django.db import transaction
+
 
 # Tree(2).tree()
 # Tree(2).data_tree()
@@ -150,25 +152,12 @@ class TermAPI():
     def __init__(self, taxonomy_id, term_id):
         self.taxonomy_id = taxonomy_id
         self.id = term_id
-        
-    def tree(self, max_depth):
-        pos = tree_locations(self.taxonomy_id).get(self.id)
-        tree = full_tree(self.taxonomy_id)
-        e = tree[pos]
-        base_depth = e.depth
-        b = [e]
-        pos += 1        
-        e = tree[pos]
-        while (base_depth < e.depth):
-            if (e.depth - base_depth < max_depth):
-                b.append(e) 
-            pos += 1        
-            e = tree[pos] 
-        return b      
 
-    def descendants(self):
+    def id_descendants(self):
         '''
         Term descendants
+        The return is disorganised and does not structure for descendant
+        paths.
         return
             [id, ....]
         '''
@@ -180,29 +169,45 @@ class TermAPI():
             b.append(tid)
             stack.extend(list.copy(child_map[tid]))
         return b
-        
-    def descendant_tree(self):
+
+
+    def id_ascendants(self):
         '''
-        Tree descendants
+        Term ascendants
+        The return is ordered as a single path.
         return
-            [DepthTid, ....], ordered
+            [id, ....]
         '''
-        pos = tree_locations(self.taxonomy_id).get(self.id)
+        parent_map = parents(self.taxonomy_id)
+        tid = parent_map[self.id]
+        b = []
+        while (tid):
+            b.append(tid)
+            tid = parent_map[tid]
+        return b
+                        
+    def depth_id_tree(self, max_depth=None):
         tree = full_tree(self.taxonomy_id)
+        l = len(tree)
+        pos = tree_locations(self.taxonomy_id).get(self.id)
         e = tree[pos]
         base_depth = e.depth
-        b = []
+        max_depth = max_depth if max_depth else 999999
+        rel_max_depth = max_depth + base_depth
+        b = [e]
         pos += 1        
-        e = tree[pos]
-        while (base_depth < e.depth):
-            # need to trim depth
-            e.depth = e.depth - base_depth
-            b.append(e) 
-            pos += 1        
+        while (pos < l):
             e = tree[pos]
-        return b
+            if (e.depth <= base_depth):
+                # i.e. if not a descendant of the given tid
+                break
+            if (e.depth < rel_max_depth):
+                b.append(e) 
+            pos += 1        
+        return b      
 
-    def ascendent_tree(self):
+
+    def depth_id_ascendent_tree(self):
         '''
         Tree ascscendants
         return
@@ -211,9 +216,9 @@ class TermAPI():
         pos = tree_locations(self.taxonomy_id).get(self.id)
         tree = full_tree(self.taxonomy_id)
         e = tree[pos]
-        base_depth = e.depth - 1      
         b = [e]       
-        while (base_depth > -1):
+        base_depth = e.depth - 1      
+        while (base_depth > TermParent.NO_PARENT):
             pos -= 1  
             e = tree[pos]
             if (base_depth >= e.depth):
@@ -221,7 +226,7 @@ class TermAPI():
                 base_depth -= 1
         return b
                 
-    def descendant_paths(self):
+    def depth_id_descendant_paths(self):
         '''
         Tree descendant paths
         Each path is a full route from the Term to a leaf,
@@ -250,7 +255,7 @@ class TermAPI():
         return b
         
     # an alternative
-    def term_descendant_paths(base_pk, term_pk):
+    def id_descendant_paths(base_pk, term_pk):
         '''
         Return tree-descending paths of data from Terms.
         If the hierarchy is multiple, the return may contain several 
@@ -289,38 +294,63 @@ class TermAPI():
                     trail.append(head)
             return b  
 
+    def ascentant_path(self):
+        term_map = terms(self.taxonomy_id)
+        path = self.depth_id_ascendent_tree()
+        return [ term_map[e] for e.tid in path ]
+    #def descentant_paths(self):
+        
     def parent_create(self, new_parent_id):
         '''
         Add necessary parentage on new term
         For maintenence, will not change the term itself.
         '''
-        cache_clear(self.taxonomy_id)
         TermParent.objects.create(pid=new_parent_id, tid=self.id)
+        cache_clear(self.taxonomy_id)
 
     def parent(self):
-        return parents(self.taxonomy_id)[self.id]
-        
+        '''
+        return
+            Term
+        '''
+        tid = parents(self.taxonomy_id)[self.id]
+        if (tid == TermParent.NO_PARENT):
+            return None
+        else:
+            return terms(self.taxonomy_id)[tid]
+
     def parent_update(self, new_parent_id):
         '''
         Update parentage on term parent change
         For maintenence, will not change the term itself.
         '''
-        cache_clear(self.taxonomy_id)
         o = TermParent.objects.get(tid=self.id)
         o.pid = new_parent_id
         TermParent.save(o)
+        cache_clear(self.taxonomy_id)
 
+    def children(self):
+        '''
+        return
+            [Term, ...]
+        '''
+        term_map = terms(self.taxonomy_id)
+        # catch NO_PARENT
+        tid = self.id if (self.id != 0) else TermParent.NO_PARENT
+        return [term_map[e] for e in children(self.taxonomy_id)[tid]]
+        
     def clear(self):
         '''
         Delete all content from the Term.
         Not including the Term. Removes descendant terms and
         attached elements.
         '''
-        cache_clear(self.taxonomy_id)
         descendant_tids = (e.tid for e in self.descendant_tree())
-        Term.objects.filter(tid__in=descendant_tids).delete()
-        TermParent.objects.filter(tid__in=descendant_tids).delete()
-        TermElement.objects.filter(tid__in=descendant_tids).delete()
+        with transaction.atomic():
+            Term.objects.filter(tid__in=descendant_tids).delete()
+            TermParent.objects.filter(tid__in=descendant_tids).delete()
+            TermElement.objects.filter(tid__in=descendant_tids).delete()
+        cache_clear(self.taxonomy_id)
  
     def reparent_choices(self):
         '''
@@ -331,19 +361,20 @@ class TermAPI():
         '''
         print('reparent_choices')
         #descendants = self.model.parent_model???.objects.descendants(self.id)
-        descendants = self.descendants()
+        descendants = self.id_descendants()
         # add in the seed term_id. Don't want to parent on ourself
         descendants.append(self.id)
         
         # get them all. seems easier right now if sloooooow.
-        return ChoiceIterator(self.taxonomy_id, (e for e in full_tree(self.taxonomy_id) if (not(e.tid in descendants))))
+        return list(ChoiceIterator(self.taxonomy_id, (e for e in full_tree(self.taxonomy_id) if (not(e.tid in descendants)))))
                                     
     #! def element_create(self, eid, tid):
     # check unique
         # TermElement.objects.create(eid=eid, tid=tid)
         
     def element_clear(self):  
-        return TermElement.objects.filter(tid=self.id).delete()
+        with transaction.atomic():
+            return TermElement.objects.filter(tid=self.id).delete()
                         
     def element_count(self):  
         return TermElement.object.filter(tid=self.id).count()                 
@@ -362,12 +393,14 @@ class TaxonomyAPI():
    #     Taxonomy.objects.create(*(kwargs)
         
         
-    def tree(self, max_depth):
+    def id_tree(self, max_depth=None):
         '''
         The tree for this taxonomy
         return
               [[DepthTid, ...], ...], ordered
         '''
+        max_depth = max_depth if max_depth else 999999
+        max_depth += 1
         return [e for e in full_tree(self.id) if e.depth < max_depth]
 
     def term(self, term_id):
@@ -375,7 +408,8 @@ class TaxonomyAPI():
 
     def to_unique(self):
         tree_tids = Terms.filter(taxonomy_id=self.id).values_list('tid', flat=True)
-        TermElement.to_unique(tree_tids)
+        with transaction.atomic():
+            TermElement.to_unique(tree_tids)
         
     def clear(self):
         '''
@@ -383,11 +417,12 @@ class TaxonomyAPI():
         Not including the Taxonomy object. Includes terms and attached 
         elements.
         '''
-        cache_clear(self.id)
         tree_tids = Terms.filter(taxonomy_id=self.id).values_list('tid', flat=True)
-        Term.objects.filter(tid__in=tree_tids).delete()
-        TermParent.objects.filter(tid__in=tree_tids).delete()
-        TermElement.objects.filter(tid__in=tree_tids).delete()
+        with transaction.atomic():
+            Term.objects.filter(tid__in=tree_tids).delete()
+            TermParent.objects.filter(tid__in=tree_tids).delete()
+            TermElement.objects.filter(tid__in=tree_tids).delete()
+        cache_clear(self.id)
 
     def initial_choices(self):
         '''
@@ -398,7 +433,5 @@ class TaxonomyAPI():
         # - NO_PARENT 
         # but cannot be attached to
         # - itself (if 'change' not 'add')
-        # - descendants (makes circular linkage)
-        #return ChoiceIterator(self.model.objects.filter(taxonomy_id=taxonomy_id).values_list('id', 'title'))
-        #return ChoiceIterator(self.model.objects.filter(taxonomy_id=taxonomy_id).values_list('id', 'title'))
-        return ChoiceIterator(self.id, (e for e in full_tree(self.id)))
+        # - descendants (makes circular linkage)'title'))
+        return list(ChoiceIterator(self.id, (e for e in full_tree(self.id))))

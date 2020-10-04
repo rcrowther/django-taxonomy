@@ -50,7 +50,6 @@ class TermForm(forms.ModelForm):
             #self.declared_fields['parent'].choices = self.model.objects.reparent_choices(taxonomy_id, instance.id)
             api = TaxonomyAPI(taxonomy_id).term(instance.id)
             self.declared_fields['parent'].choices = api.reparent_choices()
-            #kwargs['initial']['parent'] = instance.parent_ids()[0]
             kwargs['initial']['parent'] = api.parent()
         else:
             # An 'add' or base form (used by admin)
