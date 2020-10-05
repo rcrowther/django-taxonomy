@@ -148,11 +148,49 @@ class ChoiceIterator:
             prev_depth = e.depth
             yield (e.tid, title)
             
+            
+            
 class TermAPI():
     def __init__(self, taxonomy_id, term_id):
         self.taxonomy_id = taxonomy_id
         self.id = term_id
 
+    def parent(self):
+        '''
+        return
+            Term
+        '''
+        tid = parents(self.taxonomy_id)[self.id]
+        if (tid == TermParent.NO_PARENT):
+            return None
+        else:
+            return terms(self.taxonomy_id)[tid]
+
+    def children(self):
+        '''
+        return
+            [Term, ...]
+        '''
+        term_map = terms(self.taxonomy_id)
+        # catch NO_PARENT
+        tid = self.id if (self.id != 0) else TermParent.NO_PARENT
+        return [term_map[e] for e in children(self.taxonomy_id)[tid]]
+        
+    def id_ascendants(self):
+        '''
+        Term ascendants
+        The return is ordered as a single path.
+        return
+            [id, ....]
+        '''
+        parent_map = parents(self.taxonomy_id)
+        tid = parent_map[self.id]
+        b = []
+        while (tid):
+            b.append(tid)
+            tid = parent_map[tid]
+        return b
+        
     def id_descendants(self):
         '''
         Term descendants
@@ -170,44 +208,7 @@ class TermAPI():
             stack.extend(list.copy(child_map[tid]))
         return b
 
-
-    def id_ascendants(self):
-        '''
-        Term ascendants
-        The return is ordered as a single path.
-        return
-            [id, ....]
-        '''
-        parent_map = parents(self.taxonomy_id)
-        tid = parent_map[self.id]
-        b = []
-        while (tid):
-            b.append(tid)
-            tid = parent_map[tid]
-        return b
-                        
-    def depth_id_tree(self, max_depth=None):
-        tree = full_tree(self.taxonomy_id)
-        l = len(tree)
-        pos = tree_locations(self.taxonomy_id).get(self.id)
-        e = tree[pos]
-        base_depth = e.depth
-        max_depth = max_depth if max_depth else 999999
-        rel_max_depth = max_depth + base_depth
-        b = [e]
-        pos += 1        
-        while (pos < l):
-            e = tree[pos]
-            if (e.depth <= base_depth):
-                # i.e. if not a descendant of the given tid
-                break
-            if (e.depth < rel_max_depth):
-                b.append(e) 
-            pos += 1        
-        return b      
-
-
-    def depth_id_ascendent_tree(self):
+    def depth_id_ascendent_path(self):
         '''
         Tree ascscendants
         return
@@ -218,14 +219,15 @@ class TermAPI():
         e = tree[pos]
         b = [e]       
         base_depth = e.depth - 1      
-        while (base_depth > TermParent.NO_PARENT):
+        while (base_depth > 0):
             pos -= 1  
             e = tree[pos]
             if (base_depth >= e.depth):
                 b.append(e)
                 base_depth -= 1
+        b.reverse()
         return b
-                
+
     def depth_id_descendant_paths(self):
         '''
         Tree descendant paths
@@ -233,26 +235,36 @@ class TermAPI():
         return
             [[DepthTid, ...], ...], ordered
         '''
-        pos = tree_locations(self.taxonomy_id).get(self.id)
         tree = full_tree(self.taxonomy_id)
+        l = len(tree)
+        pos = tree_locations(self.taxonomy_id).get(self.id)
         e = tree[pos]
         base_depth = e.depth
-        prev_depth = base_depth
+        current_depth = base_depth
         stack = []
+        
+        # carries each path as it is built
         b = []
         pos += 1        
-        e = tree[pos]
-        current_depth = e.depth
-        while (base_depth < current_depth):
-            if (current_depth <= prev_depth):
-                stack.append(list.copy(b))
-                b = b[:current_depth]
-            b.append(e)
-            pos += 1        
+        while (pos < l):
             e = tree[pos]
             prev_depth = current_depth
-            current_depth = e,depth
-        return b
+            current_depth = e.depth
+            if (current_depth <= base_depth):
+                # i.e. if not a descendant of the given tid
+                break
+            if (current_depth <= prev_depth):
+                # path finished, need to build new one
+                stack.append(list.copy(b))
+                # stem for the new path
+                # needs to be relative to tid depth, as the builder path
+                # is also
+                b = b[:(current_depth - base_depth - 1)]
+            b.append(e)
+            pos += 1        
+        if (b):
+            stack.append(b)            
+        return stack
         
     # an alternative
     def id_descendant_paths(base_pk, term_pk):
@@ -294,12 +306,44 @@ class TermAPI():
                     trail.append(head)
             return b  
 
-    def ascentant_path(self):
+    def ascendent_path(self):
         term_map = terms(self.taxonomy_id)
-        path = self.depth_id_ascendent_tree()
-        return [ term_map[e] for e.tid in path ]
-    #def descentant_paths(self):
+        path = self.depth_id_ascendent_path()
+        return [ term_map[e.tid] for e in path ]
+    
+    def descentant_paths(self):
+        term_map = terms(self.taxonomy_id)
+        paths = self.depth_id_descendant_paths()
+        return [ [term_map[e.tid] for e in path] for path in paths]
         
+    def depth_id_tree(self, max_depth=None):
+        tree = full_tree(self.taxonomy_id)
+        l = len(tree)
+        pos = tree_locations(self.taxonomy_id).get(self.id)
+        e = tree[pos]
+        base_depth = e.depth
+        max_depth = max_depth if max_depth else 999999
+        rel_max_depth = max_depth + base_depth
+        b = [e]
+        pos += 1        
+        while (pos < l):
+            e = tree[pos]
+            if (e.depth <= base_depth):
+                # i.e. if not a descendant of the given tid
+                break
+            if (e.depth < rel_max_depth):
+                b.append(e) 
+            pos += 1        
+        return b      
+        
+    ## Utility inclined methods
+    #def create(self, **kwargs):
+        # obj = self.model(**kwargs)
+        # self._for_write = True
+        # obj.save(force_insert=True, using=self.db)
+        # return obj
+    #def get(self, *args, **kwargs):
+
     def parent_create(self, new_parent_id):
         '''
         Add necessary parentage on new term
@@ -308,16 +352,6 @@ class TermAPI():
         TermParent.objects.create(pid=new_parent_id, tid=self.id)
         cache_clear(self.taxonomy_id)
 
-    def parent(self):
-        '''
-        return
-            Term
-        '''
-        tid = parents(self.taxonomy_id)[self.id]
-        if (tid == TermParent.NO_PARENT):
-            return None
-        else:
-            return terms(self.taxonomy_id)[tid]
 
     def parent_update(self, new_parent_id):
         '''
@@ -329,16 +363,6 @@ class TermAPI():
         TermParent.save(o)
         cache_clear(self.taxonomy_id)
 
-    def children(self):
-        '''
-        return
-            [Term, ...]
-        '''
-        term_map = terms(self.taxonomy_id)
-        # catch NO_PARENT
-        tid = self.id if (self.id != 0) else TermParent.NO_PARENT
-        return [term_map[e] for e in children(self.taxonomy_id)[tid]]
-        
     def clear(self):
         '''
         Delete all content from the Term.
@@ -393,7 +417,7 @@ class TaxonomyAPI():
    #     Taxonomy.objects.create(*(kwargs)
         
         
-    def id_tree(self, max_depth=None):
+    def depth_id_tree(self, max_depth=None):
         '''
         The tree for this taxonomy
         return
@@ -410,6 +434,17 @@ class TaxonomyAPI():
         tree_tids = Terms.filter(taxonomy_id=self.id).values_list('tid', flat=True)
         with transaction.atomic():
             TermElement.to_unique(tree_tids)
+
+    @classmethod
+    def term_save(cls, new_parent_id, obj):
+        '''
+        Add necessary parentage on new term
+        For maintenence, will not change the term itself.
+        '''
+        with transaction.atomic():
+            Taxonomy.save(obj)
+            TermParent.objects.create(pid=new_parent_id, tid=obj.id)
+        cache_clear(obj.taxonomy_id)
         
     def clear(self):
         '''

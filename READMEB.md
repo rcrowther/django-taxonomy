@@ -39,13 +39,41 @@ The taxonomy presents a model 'Taxonomy' which works as a root to any tree of ca
 ## The API
 As an app, Taxonomy is spread across several DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called the manager TaxonomyAPI. You'll use it for access to taxonomy data (unless you're hacking or haave a broken installation). 
 
+For working with data in the taxonomy, this gets you to methods for a single taconomy,
+
+    from taxonomy.taxonomy import TaxonomyAPI
+
+    TaxonomyAPI(1)
+
+This gets you to methods for aa single term,
+
+
+    from taxonomy.taxonomy import TaxonomyAPI
+
+        TaxonomyAPI(1).term(3)
+
+As for the methods, there's a lot of them. For making pages, the simple-named methods return full term data,
+
+    parent
+    children
+    ascendent_path
+    descendent_paths
+
+Many of the other methods only deal with DB ids (the methods above populate these trees with term data after the shape of the data has been generated).
+
+Some methods build from the tree, so come with added data, the depth a term should be rendered at. These kinds of collections are mode from tuples (depth_in_tree, term_id).  This is the code the app uses to render the select boxes in Admin.
+
+One point worth knowing is that, since these taxonomies are single-parent, there can be only one path back to the taxonomy root. But there can be several paths towards leaves. Ask for descendant_paths() and you will get a list of lists.
+
+
 
 ## Rendering
 There are a lot of options which are nothing to do with this app, they are conceptual. What do you want to render?
 
-Let's say
+Let's say...
+
 ### A model view
-Some stock Django. 
+Some stock Django. Add some taxonomy data to a View, 
 
     from django.views.generic import ListView, DetailView
     from article.models import Page
@@ -57,13 +85,17 @@ Some stock Django.
         
         def get_context_data(self, **kwargs):
             ctx = super().get_context_data(**kwargs)
-            ctx['top_bar'] = str(TaxonomyAPI(1).term(2).id_tree())
+            ctx['top_bar'] = str(TaxonomyAPI(1).term(2).ascendent_path())
             return ctx
 
 anD in the template 'page_detail.html',
 
     <nav class="topbar">
-        {{ top_bar }}
+        {% for term in nav_bar %}
+        <div class="menu-item">
+            <a href="/category/{{ term.title }}">{{ term.title }}</a>
+        </div>
+        {% endfor %}
     </nav>
 
 ## Template tags

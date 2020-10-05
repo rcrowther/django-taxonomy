@@ -78,21 +78,13 @@ class TermAdmin(admin.ModelAdmin):
     #! test this i_single save
     #! also need to do is_unique
     def save_model(self, request, obj, form, change):
-        print('admin save')
-        print(str(form.cleaned_data))
-        # Save the term. 
-        ## There must be a tree id. The model will error if not.
-        obj.save()
-        
-        # fix the parents
-        ## The admin Term form has an additional parent field. 
         pid = form.cleaned_data.get('parent')
         tid = obj.id
-        api = TaxonomyAPI(obj.taxonomy_id).term(tid)
-        if (not change):
-            api.parent_create(pid)
+        if (not change):        
+            TaxonomyAPI.term_save(pid, obj)
         elif ('parent' in form.changed_data):
-            api.parent_update(pid)
+            TaxonomyAPI(obj.taxonomy_id).term(tid).parent_update(pid)        
+
 
     def delete_model(self, request, obj):
         """
