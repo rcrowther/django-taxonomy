@@ -132,8 +132,8 @@ class ChoiceIterator:
         #    queryset = queryset.iterator()
         prev_depth = 99999999
         for e in self.depthTerms:
-            print('ChoiceIterator')
-            print(str(e.depth))
+            #print('ChoiceIterator')
+            #print(str(e.depth))
             # basic
             #title = ' ' * e.depth + terms(self.taxonomy_id)[e.tid].title
             
@@ -142,14 +142,16 @@ class ChoiceIterator:
             if (e.depth == 0):
                 title = terms(self.taxonomy_id)[e.tid].title
             elif (prev_depth <= e.depth):
-                title = '\u00A0   ' * (e.depth - 1) + ' └- ' + terms(self.taxonomy_id)[e.tid].title
+                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007└─\u2007' + terms(self.taxonomy_id)[e.tid].title
             else:
-                title = '\u00A0   ' * (e.depth - 1) + '    ' + terms(self.taxonomy_id)[e.tid].title
+                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007\u2007\u2007\u2007' + terms(self.taxonomy_id)[e.tid].title
             prev_depth = e.depth
             yield (e.tid, title)
             
             
-            
+# Term
+# TermParent
+# TermElement              
 class TermAPI():
     def __init__(self, taxonomy_id, term_id):
         self.taxonomy_id = taxonomy_id
@@ -335,7 +337,17 @@ class TermAPI():
                 b.append(e) 
             pos += 1        
         return b      
-        
+
+    def tree(self, max_depth=None):
+        term_map = terms(self.taxonomy_id)
+        tree = self.depth_id_tree(max_depth)
+        return [(e.depth, term_map[e.tid]) for e in tree]
+
+    def depth_titles_tree(self, max_depth=None):
+        term_map = terms(self.taxonomy_id)
+        tree = self.depth_id_tree(max_depth)
+        return [(e.depth, term_map[e.tid].title) for e in tree]
+                
     ## Utility inclined methods
     #def create(self, **kwargs):
         # obj = self.model(**kwargs)
@@ -344,13 +356,13 @@ class TermAPI():
         # return obj
     #def get(self, *args, **kwargs):
 
-    def parent_create(self, new_parent_id):
-        '''
-        Add necessary parentage on new term
-        For maintenence, will not change the term itself.
-        '''
-        TermParent.objects.create(pid=new_parent_id, tid=self.id)
-        cache_clear(self.taxonomy_id)
+    # def parent_create(self, new_parent_id):
+        # '''
+        # Add necessary parentage on new term
+        # For maintenence, will not change the term itself.
+        # '''
+        # TermParent.objects.create(pid=new_parent_id, tid=self.id)
+        # cache_clear(self.taxonomy_id)
 
 
     def parent_update(self, new_parent_id):
@@ -384,38 +396,38 @@ class TermAPI():
         references.
         '''
         print('reparent_choices')
-        #descendants = self.model.parent_model???.objects.descendants(self.id)
         descendants = self.id_descendants()
         # add in the seed term_id. Don't want to parent on ourself
         descendants.append(self.id)
-        
         # get them all. seems easier right now if sloooooow.
         return list(ChoiceIterator(self.taxonomy_id, (e for e in full_tree(self.taxonomy_id) if (not(e.tid in descendants)))))
                                     
-    #! def element_create(self, eid, tid):
-    # check unique
-        # TermElement.objects.create(eid=eid, tid=tid)
+    def element_create(self, eid, tid):
+        # check unique
+        TermElement.create(eid=eid, tid=tid)
         
     def element_clear(self):  
-        with transaction.atomic():
-            return TermElement.objects.filter(tid=self.id).delete()
+        #with transaction.atomic():
+        return TermElement.objects.filter(tid=self.id).delete()
                         
     def element_count(self):  
         return TermElement.object.filter(tid=self.id).count()                 
-                               
-                               
-                               
+
+                             
+# Taxonomy
+# Term
+# TermParent
+# TermElement                             
 class TaxonomyAPI():
     '''
     API for taxonomy models.
     '''
     def __init__(self, taxonomy_id):
-        #self.obj = Taxonomy.objects.filter(id=taxonomy_id)
         self.id = taxonomy_id
         
-    #def term_create(**kwargs):
-   #     Taxonomy.objects.create(*(kwargs)
-        
+    @classmethod
+    def save(cls, obj):
+        Taxonomy.save(obj)
         
     def depth_id_tree(self, max_depth=None):
         '''
@@ -438,8 +450,8 @@ class TaxonomyAPI():
     @classmethod
     def term_save(cls, new_parent_id, obj):
         '''
+        Add a term.
         Add necessary parentage on new term
-        For maintenence, will not change the term itself.
         '''
         with transaction.atomic():
             Taxonomy.save(obj)

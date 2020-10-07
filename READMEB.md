@@ -98,11 +98,73 @@ anD in the template 'page_detail.html',
         {% endfor %}
     </nav>
 
-## Template tags
+### Whole tree rendering
+
+#### SVG rendering
+Taxonomy has some SVG displays included. These work with trees. Since they work with trees they may not be useful, because only a small taxonomy can be displayed on a webpage. And only a tiny taxonomy can be displayed on a mobile-ready display. Also, SVG display of material like this is unusual on the web (I've never seen any). 
+
+SVG graphics have advantages and disadvanatages.
+
+Pros
+- They are part of the webpage, so can be manipulated and searched like HTML
+- They react structurally to DOM commands, such as zoom.
+- they compress very small
+- They have a full range of graphic manipulation available, can be customised with colour, sizing, and effects such as blur (expensive)
+
+Cons
+- They are part of the webpage, so add extra load to browser DOM manipulation
+- They work with an absolute internal sizing. Font sizes are inherited, but no inheritance of CSS layout.
+
+##### Template tags
+There's a template tag that prints a tree in SVG. It uses StackTree but is easy to use, though operation is limited,
+
+Use a view to send a tree (the usual depth-Term type),
+
+    from taxonomy.taxonomy import TaxonomyAPI
+        ....
+        ctx['nav_bar'] = TaxonomyAPI(1).term(1).tree()
+
+Then render that dat with this tag,
+
+    {% load taxonomy_displays %}
+        ...
+        {% stacked_tree nav_bar 400 12 %}
+
+The two parameters define a ''box' size into which to write titles. As this is SVG, the text scales. To make text smaller, try make the sizes larger (which then get scaled down further. Sorry, not worked out my optimal solution for this, but it's fun).
+
+
+
+##### StackTree
+The tags use a class inlintemplates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
+
+    from django.utils.safestring import mark_safe
+    from django.utils import html
+    from taxonomy import api
+    from taxonomy.inlinetemplates import TreeRender
+
+    def get_title(pk):
+        return html.escape(api.Taxonomy.term(pk).title)
+    ...
+    # 1. Get the tree
+    bapi = api.Taxonomy.slug('angiosperms-flowering-plants')
+    t = bapi.flat_tree()
+    
+    # get the renderer, then adjust a few of the display parameters 
+    tr = TreeRender()
+    tr.beam_style = 'stroke:rgb(0,220,126);stroke-width:4;'
+    tr.stem_style = 'stroke:rgb(0,220,126);stroke-width:2;'
+
+    #3. Rend (needs a callback for data delivery into the template)
+    tree = tr.rend_default_horizontal(t, 200, 14, get_title)
+    
+    #4. Deliver into the template
+    article.body = mark_safe(tree)
+    return render(request, 'article.html', {'article': article})
 
 ## Implementation notes
-There are a few ways to implent a tree, as there are lists. Here is our version.
+There are a few ways to implement a tree. Here is our version.
 
+### Creating a Root Term
 You can only attach data elements to terms, not the 'taxonomy' instance at the base. If you would like a taxonomy where elements can be attached to the base, start a base then add a single term which will be the 'root term'. Build from there e.g. ::
 
     base = 'car categories'

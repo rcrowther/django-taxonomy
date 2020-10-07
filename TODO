@@ -1,17 +1,32 @@
+== Admin list
+needs indents
+
 == Admin forms
 Term needs a tree to send to
 Humm. Do not like selectors
+Not selecting parentage in form
 
 Term parents displaying the null option badly as '-1'
 Term element, Term parents - no verification term exists.
 
-Humm. Verification not hard to add.
+Humm. Verification (for what?) not hard to add.
 
 Validate tree_id never chages for a term.
 
 Can't parent term to self!
 Change of parent not registering.
 Need to override tree/term delete
+
+== API
+get() query
+deletes to be enabled
+
+== Rendering
+Why are dispalys sometimes hanging?
+
+== SVGs
+Can make template tags?
+Can make relative sizing?
 
 == Models
 Abstract models
