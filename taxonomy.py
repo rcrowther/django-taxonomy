@@ -61,6 +61,10 @@ def terms(taxonomy_id):
     return _terms[taxonomy_id]
         
 def generate_tree(taxonomy_id):
+    '''
+    return
+        [DepthTid]
+    '''
     child_map = children(taxonomy_id) 
     stack = [iter(child_map[TermParent.NO_PARENT])]
     depth = 0
@@ -134,17 +138,14 @@ class ChoiceIterator:
         for e in self.depthTerms:
             #print('ChoiceIterator')
             #print(str(e.depth))
-            # basic
-            #title = ' ' * e.depth + terms(self.taxonomy_id)[e.tid].title
-            
             b = []
             # ├─ │ └─
             if (e.depth == 0):
-                title = terms(self.taxonomy_id)[e.tid].title
+                title = terms(self.taxonomy_id)[e.tid].name
             elif (prev_depth <= e.depth):
-                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007└─\u2007' + terms(self.taxonomy_id)[e.tid].title
+                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007└─\u2007' + terms(self.taxonomy_id)[e.tid].name
             else:
-                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007\u2007\u2007\u2007' + terms(self.taxonomy_id)[e.tid].title
+                title = '\u2007\u2007\u2007\u2007' * (e.depth - 1) + '\u2007\u2007\u2007\u2007' + terms(self.taxonomy_id)[e.tid].name
             prev_depth = e.depth
             yield (e.tid, title)
             
@@ -157,6 +158,11 @@ class TermAPI():
         self.taxonomy_id = taxonomy_id
         self.id = term_id
 
+    def depth(self):
+        pos = tree_locations(self.taxonomy_id).get(self.id)
+        tree = full_tree(self.taxonomy_id)
+        return tree[pos].depth
+                
     def parent(self):
         '''
         return
@@ -346,7 +352,7 @@ class TermAPI():
     def depth_titles_tree(self, max_depth=None):
         term_map = terms(self.taxonomy_id)
         tree = self.depth_id_tree(max_depth)
-        return [(e.depth, term_map[e.tid].title) for e in tree]
+        return [(e.depth, term_map[e.tid].name) for e in tree]
                 
     ## Utility inclined methods
     #def create(self, **kwargs):
@@ -396,6 +402,7 @@ class TermAPI():
         references.
         '''
         print('reparent_choices')
+        #! not generating tree?
         descendants = self.id_descendants()
         # add in the seed term_id. Don't want to parent on ourself
         descendants.append(self.id)
@@ -481,4 +488,5 @@ class TaxonomyAPI():
         # but cannot be attached to
         # - itself (if 'change' not 'add')
         # - descendants (makes circular linkage)'title'))
+        #! not generating tree?
         return list(ChoiceIterator(self.id, (e for e in full_tree(self.id))))

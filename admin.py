@@ -15,8 +15,8 @@ from django.forms.models import (
     modelform_factory, modelformset_factory,
 )
 class TaxonomyAdmin(admin.ModelAdmin):
-    fields = ('title', 'slug', 'description', 'is_unique', 'weight')
-    list_display = ('title', 'term_list', 'term_add',)
+    fields = ('name', 'slug', 'description', 'weight')
+    list_display = ('name', 'term_list', 'term_add',)
     
     # Construct a URL for adding terms loaded with a taxonomy_id on the GET 
     def term_add(self, obj):
@@ -48,20 +48,25 @@ admin.site.register(Taxonomy, TaxonomyAdmin)
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
+from taxonomy.taxonomy import TaxonomyAPI
 
 csrf_protect_m = method_decorator(csrf_protect)
 
 
 def indented_term_titles(obj):
-    depth = 2
-    return "{} \u2023 {}".format(' ' * depth, obj.title)
+    depth = TaxonomyAPI(obj.taxonomy_id).term(obj.id).depth()
+    if (depth > 1):
+        return '\u2007\u2007\u2007\u2007' * (depth - 2) + "\u2007└─\u2007" + obj.name
+    else:
+        return  obj.name
     
     
-    
+from django.views.generic import RedirectView
+
 class TermAdmin(admin.ModelAdmin):
-    #fields = ('tree', 'title', 'slug', 'description', 'weight')
+    #fields = ('tree', 'name', 'slug', 'description', 'weight')
     #form = forms.TermForm
-    fields = ('taxonomy_id', 'parent', 'title', 'slug', 'description', 'weight')
+    fields = ('taxonomy_id', 'parent', 'name', 'slug', 'description', 'weight')
     #N cant be readonly, stops us pushing a value in.
     #readonly_fields = ('taxonomy_id',)
     #form = forms.ModelForm
@@ -74,6 +79,8 @@ class TermAdmin(admin.ModelAdmin):
 
     list_display = (indented_term_titles,)
 
+# ModelAdmin.get_list_display(request)
+# ModelAdmin.get_list_display_links(request, list_display)¶
     #! save is not always called? Use a post_save signal?
     #! test this i_single save
     #! also need to do is_unique
@@ -125,7 +132,7 @@ class TermAdmin(admin.ModelAdmin):
             if (not taxonomy_id):
                 # for a add form the id comes in GET
                 taxonomy_id = request.GET['taxonomy_id']
-            r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).title
+            r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
         return r
 
     def changelist_view(self, request, extra_context=None):
@@ -133,12 +140,12 @@ class TermAdmin(admin.ModelAdmin):
         # Personally, I think this is horrible
         r = super().changelist_view(request, extra_context=None)
         taxonomy_id = request.GET.get('taxonomy_id')
-        r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).title
+        r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
         return r
         
+
+    # # Thumpingly ugly overload of URLs to guess at ways of unrendering
     # def get_urls(self):
-        # # Thumpingly ugly overload of URLs to carry taxonomy_id on the 'add'
-        # # URL.
         # from django.urls import path
 
         # def wrap(view):
@@ -147,17 +154,21 @@ class TermAdmin(admin.ModelAdmin):
             # wrapper.model_admin = self
             # return update_wrapper(wrapper, view)
 
-        # r = []
         # info = self.model._meta.app_label, self.model._meta.model_name
-        # # #/admin/taxonomy/term/1/change/
-        # #tree_relative_change_url = path('<path:object_id>/<int:taxonomy_id>/change/', wrap(self.change_view), name='%s_%s_change' % info)
-        # #r.append(tree_relative_change_url)        
-        # tree_relative_add_url = path('<int:taxonomy_id>/add/', wrap(self.add_view), name='%s_%s_add' % info)
-        # r.append(tree_relative_add_url)        
-        # r.extend( super().get_urls())
-        
-        # #print(str(r))
-        # return r
+
+        # return [
+            # path('', wrap(self.changelist_view), name='%s_%s_changelist' % info),
+            # path('add/', wrap(self.add_view), name='%s_%s_add' % info),
+            # path('autocomplete/', wrap(self.autocomplete_view), name='%s_%s_autocomplete' % info),
+            # path('<path:object_id>/history/', wrap(self.history_view), name='%s_%s_history' % info),
+            # path('<path:object_id>/delete/', wrap(self.delete_view), name='%s_%s_delete' % info),
+            # #path('<path:object_id>/change/', wrap(self.change_view), name='%s_%s_change' % info),
+            # #path('<path:object_id>/change/', wrap(self.change_view), name='%s_%s_change' % info),
+            # # For backwards compatibility (was the change url before 1.9)
+            # #path('<path:object_id>/', wrap(RedirectView.as_view(
+            # #    pattern_name='%s:%s_%s_change' % ((self.admin_site.name,) + info)
+            # #))),
+        # ]
         
     #def get_form(self, request, obj=None, change=False, **kwargs):
     #    form = super().get_form(request, obj, change, **kwargs)

@@ -98,10 +98,39 @@ anD in the template 'page_detail.html',
         {% endfor %}
     </nav>
 
-### Whole tree rendering
 
-#### SVG rendering
-Taxonomy has some SVG displays included. These work with trees. Since they work with trees they may not be useful, because only a small taxonomy can be displayed on a webpage. And only a tiny taxonomy can be displayed on a mobile-ready display. Also, SVG display of material like this is unusual on the web (I've never seen any). 
+### Whole tree rendering
+It's not often you see a whole tree rendered. Think of those sitemap modules that are always written and never used. Still, you may have reason for printing the tree, and there are a few ways.
+
+#### Flat Trees
+Trees that are made of term data plus a depth. As used in the selector boxes in admin.
+
+The tags and classes return HTML.
+
+##### Template tags
+There's a template tag that prints a depth tree in HTML. It uses a class FlatTreeRenderer but is easy to use, though operation is limited,
+
+Use a view to send a tree (the usual depth-Term type),
+
+    from taxonomy.taxonomy import TaxonomyAPI
+        ....
+        ctx['nav_bar'] = TaxonomyAPI(1).term(1).tree()
+
+Render that data in a template with this tag,
+
+    {% load taxonomy_displays %}
+        ...
+        {% flat_tree %}
+
+
+##### FlatTreeRenderer
+The tag uses a class inlintemplates.FlatTreeRenderer, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
+
+
+#### Stacked Trees
+Trees that display terms on top of each other, extending downwards like roots on a plant. These displays use a lot of visual space. Only a small taxonomy can be displayed on a display.
+
+The classes and tags return SVG graphics.
 
 SVG graphics have advantages and disadvanatages.
 
@@ -114,6 +143,7 @@ Pros
 Cons
 - They are part of the webpage, so add extra load to browser DOM manipulation
 - They work with an absolute internal sizing. Font sizes are inherited, but no inheritance of CSS layout.
+
 
 ##### Template tags
 There's a template tag that prints a tree in SVG. It uses StackTree but is easy to use, though operation is limited,
@@ -133,26 +163,20 @@ Then render that dat with this tag,
 The two parameters define a ''box' size into which to write titles. As this is SVG, the text scales. To make text smaller, try make the sizes larger (which then get scaled down further. Sorry, not worked out my optimal solution for this, but it's fun).
 
 
-
-##### StackTree
-The tags use a class inlintemplates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
+##### StackTreeRenderer
+The tags use a class inline_templates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
 
     from django.utils.safestring import mark_safe
     from django.utils import html
     from taxonomy import api
-    from taxonomy.inlinetemplates import TreeRender
+    from taxonomy.inline_templates import TreeRender
 
     def get_title(pk):
         return html.escape(api.Taxonomy.term(pk).title)
     ...
     # 1. Get the tree
-    bapi = api.Taxonomy.slug('angiosperms-flowering-plants')
-    t = bapi.flat_tree()
-    
-    # get the renderer, then adjust a few of the display parameters 
-    tr = TreeRender()
-    tr.beam_style = 'stroke:rgb(0,220,126);stroke-width:4;'
-    tr.stem_style = 'stroke:rgb(0,220,126);stroke-width:2;'
+    api = TaxonomyAPI(1).term(1).tree()
+    t = api.flat_tree()
 
     #3. Rend (needs a callback for data delivery into the template)
     tree = tr.rend_default_horizontal(t, 200, 14, get_title)
@@ -160,6 +184,8 @@ The tags use a class inlintemplates.Stacktree, which is more flexible than the t
     #4. Deliver into the template
     article.body = mark_safe(tree)
     return render(request, 'article.html', {'article': article})
+
+
 
 ## Implementation notes
 There are a few ways to implement a tree. Here is our version.

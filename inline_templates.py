@@ -6,13 +6,10 @@ from django.utils import html
 import math
 
 
-
+#? add attributes for wrapping tags.
 class FlatTreeRenderer():
     def data_template(self, data):
-        return html.escape(data.title)
-
-    def item_template(self, data):
-        return ('<li>{}</li>').format(data)
+        return html.escape(data.name)
 
     def rend(self, tree):
         b = ['<ul class="tree">']
@@ -23,15 +20,34 @@ class FlatTreeRenderer():
                 text = self.data_template(data)
             elif (prev_depth <= depth):
                 # 9492,'u25114'' 9472 '\u2500'
-                text = self.item_template('\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007<span>└─</span>\u2007' + self.data_template(e[1]))
+                text = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007<span>└─</span>\u2007' + self.data_template(e[1])
             else:
-                text = self.item_template('\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007\u2007\u2007\u2007' + self.data_template(e[1]))
+                text = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007\u2007\u2007\u2007' + self.data_template(e[1])
             prev_depth = depth
+            b.append('<li>')
             b.append(text)
+            b.append('</li>')
         b.append('</ul>')
         return ''.join(b)
     
-    
+
+      
+class AnchorFlatTreeRenderer(FlatTreeRenderer):
+    '''
+    Requires the callback on the renders to deliver
+    tuples [(href, text)]
+    '''
+    def data_template(self, data):
+        d = '<a href="{1}">{0}</a>'.format(
+            html.escape(data.name),
+            #? probably not escape, but something else to protect URLs
+            html.escape(data.slug),
+        )
+        return html.escape(d)
+
+
+        
+        
     
 class StackTreeRenderer():
     '''
@@ -47,9 +63,6 @@ class StackTreeRenderer():
     def text_template(self, x, y, cb_data):
         return ('<text x="{0}" y="{1}">{2}</text>').format(x, y, html.escape(cb_data))
 
-    def svg_template(self, width, height):
-        return ('<svg viewBox="0 0 {0} {1}">').format(width, height)
-        
     def rend_default(
             self, 
             tree, 
@@ -179,12 +192,16 @@ class StackTreeRenderer():
             prev_depth = depth
         b.append('</svg>')
         # replacing 'dummy_div'
-        b[0] = self.svg_template(x_max + x_space, y_max + math.floor(y_space / 2))
+        #b[0] = self.svg_template(x_max + x_space, y_max + math.floor(y_space / 2))
+        b[0] =  '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {0} {1}">'.format(
+            x_max + x_space,
+            y_max + math.floor(y_space / 2)
+        )
         return ''.join(b)
   
      
       
-class AnchorTreeRenderer(StackTreeRenderer):
+class AnchorStackTreeRenderer(StackTreeRenderer):
     '''
     Requires the callback on the renders to deliver
     tuples [(href, text)]
@@ -196,70 +213,3 @@ class AnchorTreeRenderer(StackTreeRenderer):
             cb_data[0], 
             cb_data[1]
         )
-
-    def svg_template(self, width, height):
-        return ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="{0}" height="{1}">').format(
-            width, 
-            height
-        )
-     
-     
-       
-
-# def link(text, href, attrs={}):
-    # '''
-    # Build HTML for a anchor/link.
-    
-    # @param title escaped
-    # @param href escaped
-    # @param attrs dict of HTML attributes. Not escaped
-    # '''
-    # #NB 'attrs' can not use kwargs because may want to use reserved words
-    # # for keys, such as 'id' and 'class'
-    # b = []
-    # for k,v in attrs.items():
-        # b.append('{0}={1}'.format(k, v))
-    # return mark_safe('<a href="{0}" {1}/>{2}</a>'.format(
-        # html.escape(href),
-        # ' '.join(b),
-        # html.escape(text)
-        # ))
-
-# def submit(value, name, attrs={}):
-    # '''
-    # Build HTML for a anchor/link.
-    
-    # @param title escaped
-    # @param name escaped
-    # @param attrs dict of HTML attributes. Not escaped
-    # '''
-    # #NB 'attrs' can not use kwargs because may want to use reserved words
-    # # for keys, such as 'id' and 'class'
-    # b = []
-    # for k,v in attrs.items():
-        # b.append('{0}={1}'.format(k, v))
-    # return mark_safe('<input name="{0}" value={1} type="submit" {2}>'.format(
-        # html.escape(name),
-        # html.escape(value),
-        # ' '.join(b)
-        # ))
-
-# # currently unused
-# def table_row(row_data):
-    # '''
-    # Build HTML for a table row.
-    
-    # @param row_data Not escaped.
-    # @return list of the data. Needs joining.
-    # '''
-    # b = []
-    # for e in row_data:
-        # b.append('<td>')
-        # b.append(e)
-        # b.append('</td>')
-    # return b
-
-# def tmpl_instance_message(msg, title):
-  # '''Template for a message or title about an model instance'''
-  # return mark_safe('{0} <i>{1}</i>.'.format(msg, html.escape(title)))
-  

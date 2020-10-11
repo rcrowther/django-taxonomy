@@ -1,3 +1,6 @@
+== Inline templates
+Is it possible to inline template attributes? We want attributes.
+
 == Admin list
 needs indents
 
@@ -20,6 +23,7 @@ Need to override tree/term delete
 == API
 get() query
 deletes to be enabled
+depth not respected
 
 == Rendering
 Why are dispalys sometimes hanging?
