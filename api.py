@@ -8,6 +8,7 @@ from django.db import transaction
 # ROOT = TermParent.NO_PARENT
 # FULL_DEPTH = cache.FULL_DEPTH
 # UNPARENT = TermParent.UNPARENT
+NO_PARENT = -1
 
 DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
 
@@ -20,7 +21,7 @@ class ChoiceIterator:
 
     def __iter__(self):
         #yield (TermParent.NO_PARENT, 'None (root term)')
-        yield (-1, 'None (root term)')
+        yield (NO_PARENT, 'None (root term)')
         prev_depth = 99999999
         for e in self.depthTerms:
             #print('ChoiceIterator')
@@ -70,7 +71,7 @@ class TermMethods:
             Term
         '''
         tid = self.cache.parent_map(self.taxonomy_id)[self.id]
-        if (tid == self.model_termparent.NO_PARENT):
+        if (tid == NO_PARENT):
             return None
         else:
             return self.cache.term_map(self.taxonomy_id)[tid]
@@ -81,7 +82,7 @@ class TermMethods:
             [Term, ...]
         '''
         # catch NO_PARENT
-        tid = self.id if (self.id != 0) else self.model_termparent.NO_PARENT
+        tid = self.id if (self.id != 0) else NO_PARENT
         term_map = self.cache.term_map(self.taxonomy_id)
         return [term_map[e] for e in self.cache.child_map(self.taxonomy_id)[tid]]
 
@@ -249,6 +250,8 @@ class TermMethods:
         references.
         '''
         print('API reparent_choices')
+        #? This feels like a shambles. but the slick thing would be
+        # tree ids no descendants?
         #! not generating tree?
         descendants = self.id_descendants()
         # add in the seed term_id. Don't want to parent on ourself
@@ -359,20 +362,50 @@ class TaxonomyAPI:
         setattr(model, name, self)
 
     def generate_base_data(self, taxonomy_id):
-        terms = {term.id : term for term in self.model_term.objects.filter(taxonomy_id=taxonomy_id)}
-        tids = terms.keys()
-        #parents = {tp.tid : tp.pid for tp in self.model_termparent.objects.filter(tid__in=tids).order_by('weight')}
-        parents = {tp.tid : tp.pid for tp in self.model_termparent.objects.filter(tid__in=tids)}
-        # An inversion of parents removes leaves (no children). Want to 
-        # account for all tids, so prebuild from Terms instead
-        children = {tid : [] for tid in terms.keys()} 
+        from django.db import connection
+        terms = {}
+        parents = {}
+        children = {}
+        PID_Weighted_SQL = "SELECT t.*, tp.pid FROM {} tp INNER JOIN {} t ON tp.tid = t.id WHERE t.taxonomy_id = {} ORDER BY t.weight".format(
+            self.model_termparent._meta.db_table,
+            self.model_term._meta.db_table,
+            int(taxonomy_id)
+            )
+        #print('PID_Weighted_SQL')
+        #print(PID_Weighted_SQL)
+        with connection.cursor() as cursor:
+            cursor.execute(PID_Weighted_SQL)
+            for r in cursor.fetchall():
+                # 1, 1, 0, 'term 1', 'term_1', 'term 1',
+                print(str(r))
+                tid = r[0]
+                terms[tid] = self.model_term(*r[:-1])
+                parents[tid] = r[-1]
+                # Only set up children for later population.
+                # Setup here ensures every tid is accounted for.
+                children[tid] = []
         # and ensure NO_PARENTS entry
-        children[-1] = []
+        children[NO_PARENT] = []
         for (tid, pid) in parents.items():
             children[pid].append(tid)
         self._terms[taxonomy_id] = terms
         self._parents[taxonomy_id] = parents
         self._children[taxonomy_id] = children
+        
+    # def generate_base_data(self, taxonomy_id):
+        # terms = {term.id : term for term in self.model_term.objects.filter(taxonomy_id=taxonomy_id)}
+        # tids = terms.keys()
+        # parents = {tp.tid : tp.pid for tp in self.model_termparent.objects.filter(tid__in=tids)}
+        # # An inversion of parents removes leaves (no children). Want to 
+        # # account for all tids, so prebuild from Terms instead
+        # children = {tid : [] for tid in terms.keys()} 
+        # # and ensure NO_PARENTS entry
+        # children[NO_PARENT] = []
+        # for (tid, pid) in parents.items():
+            # children[pid].append(tid)
+        # self._terms[taxonomy_id] = terms
+        # self._parents[taxonomy_id] = parents
+        # self._children[taxonomy_id] = children
 
     def child_map(self, taxonomy_id):
         if (not taxonomy_id in self._children):
@@ -395,7 +428,7 @@ class TaxonomyAPI:
             [DepthTid]
         '''
         child_map = self.child_map(taxonomy_id) 
-        stack = [iter(child_map[self.model_termparent.NO_PARENT])]
+        stack = [iter(child_map[NO_PARENT])]
         depth = 0
         while (stack):
             depth = len(stack) - 1

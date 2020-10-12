@@ -59,10 +59,25 @@ class TestAPI(TestCase):
         self.assertEqual(len(self.api._terms), 0)       
 
 
-# class TestAPI(TestCase):
-    # def setUp(self):
-        # self.api = Taxonomy.api
-        # utils.build_taxonomy()
+class TestAPI(TestCase):
+    '''
+    Test API cache
+    '''
+    @classmethod
+    def setUpTestData(cls):
+        utils.build_parented_taxonomy()
+
+    def setUp(self):
+        self.api = Taxonomy.api
+
+    # def initial_choices(self):
+    # def depth_id_tree(self, max_depth=None):
+    # def reparent_choices(self):
+    # def descentant_paths(self):
+    # def depth_id_tree(self, max_depth=None):
+    # def depth_id_ascendent_path(self):
+    # def id_ascendants(self):
+    # def children(self):
         
     # def test_children(self):
         # # is subclass?

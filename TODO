@@ -24,6 +24,7 @@ Need to override tree/term delete
 get() query
 deletes to be enabled
 depth not respected
+Reparent_choices is very messy
 
 == Rendering
 Why are dispalys sometimes hanging?
