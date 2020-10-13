@@ -68,7 +68,7 @@ class TermMethods:
     def parent(self):
         '''
         return
-            Term
+            Term. If NO_PARENT, None
         '''
         tid = self.cache.parent_map(self.taxonomy_id)[self.id]
         if (tid == NO_PARENT):
@@ -91,6 +91,7 @@ class TermMethods:
         '''
         Term ascendants
         The return is ordered as a single path.
+        Includes the original id.
         return
             [id, ....]
         '''
@@ -107,6 +108,7 @@ class TermMethods:
         Term descendants
         The return is disorganised and does not structure for descendant
         paths.
+        Does not include the original id.
         return
             [id, ....]
         '''
@@ -224,13 +226,14 @@ class TermMethods:
         Removes descendant terms and
         attached elements.
         '''
-        #NB Term is in the descendants
         descendant_tids = self.id_descendants()
+        # Term is not in the descendants
+        descendant_tids.append(self.id)
         with transaction.atomic():
-            TermElement.objects.filter(tid__in=descendant_tids).delete()
-            TermParent.objects.filter(tid__in=descendant_tids).delete()
-            Term.objects.filter(tid__in=descendant_tids).delete()
-            self.cache.clear(self.taxonomy_id)
+            self.model_element.objects.filter(tid__in=descendant_tids).delete()
+            self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
+            self.model_term.objects.filter(id__in=descendant_tids).delete()
+        self.cache.clear(self.taxonomy_id)
 
     def parent_update(self, new_parent_id):
         '''
@@ -308,13 +311,13 @@ class TaxonomyMethods:
         return
             [(depth, Term)]
         '''
-        term_map = self.cache.term_map(self.taxonomy_id)
+        term_map = self.cache.term_map(self.id)
         tree = self.depth_id_tree(max_depth)
         return [DepthTerm(e.depth, term_map[e.tid]) for e in tree]
                 
     def delete(self):
         '''
-        Delete the tree and contentts.
+        Delete the tree and contents.
         Including the Taxonomy object. Also terms, parentage, and attached 
         elements.
         '''
@@ -323,7 +326,7 @@ class TaxonomyMethods:
             self.model_element.objects.filter(tid__in=tree_tids).delete()
             self.model_termparent.objects.filter(tid__in=tree_tids).delete()
             self.model_term.objects.filter(tid__in=tree_tids).delete()
-            self.model_taxonomy.objects.filter(id=self.id).delete()
+            #self.model_taxonomy.objects.filter(id=self.id).delete()
             self.cache.clear(self.id)
         
     def initial_choices(self):
@@ -334,16 +337,18 @@ class TaxonomyMethods:
         return list(ChoiceIterator(self.id, (e for e in self.tree())))
         
         
+        
 class TaxonomyAPI:
     '''
     API for taxonomy models.
     '''
     def __init__(self, 
+        model_taxonomy,
         model_term, 
         model_termparent, 
         model_element, 
     ):
-        self.model_taxonomy = None
+        self.model_taxonomy = model_taxonomy
         self.model_term = model_term 
         self.model_termparent = model_termparent 
         self.model_element = model_element 
@@ -355,11 +360,9 @@ class TaxonomyAPI:
         self._trees = {}
         self._tree_locations = {}
 
-    def contribute_to_class(self, model, name):
-        print('API contribute_to_class')
-        print(str(model))
-        self.model_taxonomy = model
-        setattr(model, name, self)
+    # def contribute_to_class(self, model, name):
+        # self.model_taxonomy = model
+        # setattr(model, name, self)
 
     def generate_base_data(self, taxonomy_id):
         from django.db import connection
@@ -499,3 +502,5 @@ class TaxonomyAPI:
             self.model_taxonomy.save(obj)
             self.model_termparent.objects.create(pid=new_parent_id, tid=obj.id)
             self.clear(obj.taxonomy_id)
+
+

@@ -2,6 +2,9 @@ from django.db import models
 from django.urls import reverse
 from django.db import connection
 from taxonomy.api import TaxonomyAPI
+from django.db.models import signals
+
+
 
 
 class TermElement(models.Model):
@@ -124,7 +127,7 @@ class TermParent(models.Model):
 
 
 class TermBase(models.Model):
-
+            
     taxonomy_id = models.IntegerField(
         "taxonomy id",
         db_index=True,
@@ -147,6 +150,25 @@ class TermBase(models.Model):
         help_text="Priority for display of several categories Lower value orders first. 0 to 32767.",
     )
 
+    def delete(self, using=None, keep_parents=False):
+    #def delete(using=DEFAULT_DB_ALIAS, keep_parents=False):
+        # # #super().delete(using, keep_parents)
+        self.api(self.taxonomy_id).term(self.id).delete()
+    #@classmethod
+    # def api_delete(cls, instance, **kwargs):
+        # print(str(instance.id))
+        # cls.api(instance.taxonomy_id).term(instance.id).delete()
+ 
+    # def __init_subclass__(cls, **kwargs):
+        # # On any subclass initialisation, connect signal to the delete 
+        # # method. This will work on bulk SQL deletes as well as admin 
+        # # form generated deletes.
+        # # Racey, because term deletion not handled in the same 
+        # # transaction as other deletions, but it will work on bulk
+        # # deletes, an otherwise hopeless case.
+        # super().__init_subclass__()
+        # signals.post_delete.connect(cls.api_delete, sender=cls)
+        
     def __repr__(self):
         return "Term(taxonomy_id:{}, name:{}, weight:{})".format(
             self.taxonomy_id,
@@ -208,15 +230,17 @@ class Term(TermBase):
         
     #def get_absolute_url(self):
     #    return reverse("term-detail", kwargs={"slug": self.slug})
-    @classmethod
-    def api(cls, taxonomy_id, term_id):
-        return TermAPI(
-            cls,
-            TermParent, 
-            TermElement, 
-            taxonomy_id,
-            term_id
-         )
+    # @classmethod
+    # def api(cls, taxonomy_id, term_id):
+        # return TermAPI(
+            # cls,
+            # TermParent, 
+            # TermElement, 
+            # taxonomy_id,
+            # term_id
+         # )
+    api = None
+
     #system = models.Manager()
 
     def __repr__(self):
@@ -279,12 +303,32 @@ class Taxonomy(models.Model):
             # #taxonomy_id
          # )
 
-    api = TaxonomyAPI(
-            #'Taxonomy',
-            Term, 
-            TermParent, 
-            TermElement
-         )        
+    # api = TaxonomyAPI(
+            # #'Taxonomy',
+            # Term, 
+            # TermParent, 
+            # TermElement
+         # )       
+    api = None
+
+    @classmethod
+    def api_delete(cls, instance, **kwargs):
+        cls.api(instance.id).delete()
+
+    # def delete(using=DEFAULT_DB_ALIAS, keep_parents=False):
+        # #super().delete(using, keep_parents)
+        # self.api(self.taxonomy_id).term(self.id).delete()
+ 
+    def __init_subclass__(cls, **kwargs):
+        # On any subclass initialisation, connect signal to the delete 
+        # method. This will work on bulk SQL deletes as well as admin 
+        # form generated deletes.
+        # Racey, because term deletion not handled in the same 
+        # transaction as other deletions, but it will work on bulk
+        # deletes, an otherwise hopeless case.
+        super().__init_subclass__()
+        signals.post_delete.connect(cls.api_delete, sender=cls)
+        
     #def get_absolute_url(self):
     #    return reverse("tree-detail", kwargs={"slug": self.slug})
         
@@ -300,3 +344,12 @@ class Taxonomy(models.Model):
             self.name if self.name else self.id, 
         )
 
+TAPI = TaxonomyAPI(
+            Taxonomy,
+            Term, 
+            TermParent, 
+            TermElement
+         )    
+         
+Term.api = TAPI
+Taxonomy.api = TAPI

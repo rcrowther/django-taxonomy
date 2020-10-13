@@ -97,14 +97,15 @@ class TermAdmin(admin.ModelAdmin):
         """
         Given a model instance delete it from the database.
         """
-        obj.delete()
-        #taxonomy.term_delete([obj.id]) 
+        obj.api(obj.taxonomy_id).term(obj.id).delete()
+
 
     def delete_queryset(self, request, queryset):
         """Given a queryset, delete it from the database."""
-        queryset.delete()
-        #taxonomy.term_delete([t.tid for t in queryset)) 
-        
+        #? More efficient with dedicated api.delete?
+        for term in queryset:
+            self.delete_model(request, term)
+            
     #def get_object(self, request, object_id, from_field=None):
     #    return super().get_object(request, object_id, from_field)
 
