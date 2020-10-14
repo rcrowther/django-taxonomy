@@ -170,7 +170,8 @@ class TermBase(models.Model):
         # signals.post_delete.connect(cls.api_delete, sender=cls)
         
     def __repr__(self):
-        return "Term(taxonomy_id:{}, name:{}, weight:{})".format(
+        return "Term(id:{}, taxonomy_id:{}, name:{}, weight:{})".format(
+            self.id,
             self.taxonomy_id,
             self.name,
             self.weight,
@@ -244,7 +245,8 @@ class Term(TermBase):
     #system = models.Manager()
 
     def __repr__(self):
-        return "Term(taxonomy_id:{}, name:{}, slug:{}, weight:{})".format(
+        return "Term(id:{}, taxonomy_id:{}, name:{}, slug:{}, weight:{})".format(
+            self.id,
             self.taxonomy_id,
             self.name,
             self.slug,

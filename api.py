@@ -65,16 +65,28 @@ class TermMethods:
         tree = self.cache.tree(self.taxonomy_id)
         return tree[pos].depth
 
+    def id_parent(self):
+        pid = self.cache.parent_map(self.taxonomy_id)[self.id]
+        if (pid == NO_PARENT):
+            return None
+        else:
+            return pid
+
+    def id_children(self):
+        # catch NO_PARENT
+        tid = self.id if (self.id > 0) else NO_PARENT
+        return self.cache.child_map(self.taxonomy_id)[tid]
+                                
     def parent(self):
         '''
         return
             Term. If NO_PARENT, None
         '''
-        tid = self.cache.parent_map(self.taxonomy_id)[self.id]
-        if (tid == NO_PARENT):
+        pid = self.cache.parent_map(self.taxonomy_id)[self.id]
+        if (pid == NO_PARENT):
             return None
         else:
-            return self.cache.term_map(self.taxonomy_id)[tid]
+            return self.cache.term_map(self.taxonomy_id)[pid]
 
     def children(self):
         '''

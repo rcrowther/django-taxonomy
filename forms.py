@@ -19,7 +19,7 @@ class TermForm(forms.ModelForm):
     '''
     Handle single parenting. 
     '''
-    model = Term
+    #model = Term
     
     #! _errors
     # 1. It may be a modelform, but it has extra field for parent. This 
@@ -41,16 +41,17 @@ class TermForm(forms.ModelForm):
         # 6. Add choices to 'parents'
         # 7. Set a value on 'parents' (via. 'initial') to select values
         instance = kwargs.get('instance')
-        #print(str(kwargs))
         if (instance):
             # probably an 'update'
             print('Termform update')
             taxonomy_id = instance.taxonomy_id
             #self.declared_fields['parents'].choices = self.model.term_choices_update(taxonomy_id, instance.id)
             #self.declared_fields['parent'].choices = self.model.objects.reparent_choices(taxonomy_id, instance.id)
-            api = TaxonomyAPI(taxonomy_id).term(instance.id)
+            api = self._meta.model.api(instance.taxonomy_id).term(instance.id)
             self.declared_fields['parent'].choices = api.reparent_choices()
-            kwargs['initial']['parent'] = api.parent()
+            print(instance.__repr__())
+            print(api.id_parent().__repr__())
+            kwargs['initial']['parent'] = api.id_parent()
         else:
             # An 'add' or base form (used by admin)
             print('Termform add')
@@ -60,10 +61,12 @@ class TermForm(forms.ModelForm):
             taxonomy_id = kwargs['initial'].get('taxonomy_id', None)
             #self.declared_fields['parents'].choices = self.model.term_choices(taxonomy_id)
             #self.declared_fields['parent'].choices = self.model.objects.initial_choices(taxonomy_id)
-            self.declared_fields['parent'].choices = TaxonomyAPI(taxonomy_id).initial_choices()
+            self.declared_fields['parent'].choices = self._meta.model.api(taxonomy_id).initial_choices()
             kwargs['initial']['parent'] = TermParent.NO_PARENT
 
-        #print(str(kwargs))
+        #print('meta')
+        #print(str(self._meta.model))
+#['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'error_messages', 'exclude', 'field_classes', 'fields', 'help_texts', 'labels', 'localized_fields', 'model', 'widgets']
 
         super().__init__(*args, **kwargs)
         
@@ -72,7 +75,9 @@ class TermForm(forms.ModelForm):
         #self.fields['taxonomy_id'].widget = HiddenInput()
         #widgets = {'name': forms.HiddenInput()}
 
-
+    class Meta:
+        model = Term
+        exclude = []
 
 # class MultiTermForm(forms.ModelForm):
     # '''

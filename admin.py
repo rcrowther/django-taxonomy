@@ -121,6 +121,9 @@ class TermAdmin(admin.ModelAdmin):
         #request.GET['taxonomy_id'] = taxonomy_id
     #    return self.changeform_view(request, None, form_url, extra_context)
 
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        return self.form
+
     def _changeform_view(self, request, object_id, form_url, extra_context):
         # add taxonomy_id to context
         r = super()._changeform_view(request, object_id, form_url, extra_context)
