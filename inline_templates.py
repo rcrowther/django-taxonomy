@@ -14,10 +14,11 @@ class FlatTreeRenderer():
     def rend(self, tree):
         b = ['<ul class="tree">']
         prev_depth = 99999999
+
         for e in tree:
             depth = e[0]
             if (depth == 0):
-                text = self.data_template(data)
+                text = self.data_template(e[1])
             elif (prev_depth <= depth):
                 # 9492,'u25114'' 9472 '\u2500'
                 text = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007<span>└─</span>\u2007' + self.data_template(e[1])

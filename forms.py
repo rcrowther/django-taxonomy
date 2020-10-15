@@ -57,8 +57,13 @@ class TermForm(forms.ModelForm):
             print('Termform add')
             #initial = kwargs.get('initial')
             #if (initial):
-            #    taxonomy_id = kwargs['initial']['taxonomy_id']
+            #taxonomy_id = kwargs['initial']['taxonomy_id']
+            # 
             taxonomy_id = kwargs['initial'].get('taxonomy_id', None)
+            if (not taxonomy_id):
+                # Good grief. Maybe it was passed in Djangos 
+                # super-involuted parameter-passing URL gear
+                taxonomy_id = args[0]['taxonomy_id']
             #self.declared_fields['parents'].choices = self.model.term_choices(taxonomy_id)
             #self.declared_fields['parent'].choices = self.model.objects.initial_choices(taxonomy_id)
             self.declared_fields['parent'].choices = self._meta.model.api(taxonomy_id).initial_choices()

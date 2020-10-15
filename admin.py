@@ -5,6 +5,7 @@ from django import forms
 from django.utils.html import format_html
 from functools import partial, reduce, update_wrapper
 from taxonomy.taxonomy import TaxonomyAPI
+from django.http import HttpResponseRedirect
 
 
 from django.core.exceptions import (
@@ -88,9 +89,11 @@ class TermAdmin(admin.ModelAdmin):
         pid = form.cleaned_data.get('parent')
         tid = obj.id
         if (not change):        
-            TaxonomyAPI.term_save(pid, obj)
+            #TaxonomyAPI.term_save(pid, obj)
+            obj.api.term_save(pid, obj)
         elif ('parent' in form.changed_data):
-            TaxonomyAPI(obj.taxonomy_id).term(tid).parent_update(pid)        
+            #TaxonomyAPI(obj.taxonomy_id).term(tid).parent_update(pid)        
+            obj.api(obj.taxonomy_id).term(tid).parent_update(pid)        
 
 
     def delete_model(self, request, obj):
@@ -103,6 +106,7 @@ class TermAdmin(admin.ModelAdmin):
     def delete_queryset(self, request, queryset):
         """Given a queryset, delete it from the database."""
         #? More efficient with dedicated api.delete?
+        print("Admin queryset delete...")
         for term in queryset:
             self.delete_model(request, term)
             
@@ -122,6 +126,10 @@ class TermAdmin(admin.ModelAdmin):
     #    return self.changeform_view(request, None, form_url, extra_context)
 
     def get_form(self, request, obj=None, change=False, **kwargs):
+        # Must override this, or it returns a generic model form that
+        # will try to process in changeview without understanding the
+        # adittional data. Thus, fail validation.
+        #! maybe reintroduce some Admin tweaks?
         return self.form
 
     def _changeform_view(self, request, object_id, form_url, extra_context):
@@ -143,8 +151,9 @@ class TermAdmin(admin.ModelAdmin):
         # add taxonomy_id to context
         # Personally, I think this is horrible
         r = super().changelist_view(request, extra_context=None)
-        taxonomy_id = request.GET.get('taxonomy_id')
-        r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
+        if (not (isinstance(r, HttpResponseRedirect))):
+            taxonomy_id = request.GET.get('taxonomy_id')
+            r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
         return r
         
 

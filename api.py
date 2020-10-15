@@ -255,7 +255,7 @@ class TermMethods:
         o = self.model_termparent.objects.get(tid=self.id)
         o.pid = new_parent_id
         self.model_termparent.save(o)
-        cache_clear(self.taxonomy_id)
+        self.cache.clear(self.taxonomy_id)
 
     def reparent_choices(self):
         '''
@@ -440,7 +440,7 @@ class TaxonomyAPI:
     def _generate_tree(self, taxonomy_id):
         '''
         return
-            [DepthTid]
+            [DepthTid] Tree depths are from 0...
         '''
         child_map = self.child_map(taxonomy_id) 
         stack = [iter(child_map[NO_PARENT])]
