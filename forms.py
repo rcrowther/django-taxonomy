@@ -1,9 +1,10 @@
 from django import forms
-from taxonomy.models import Term, Taxonomy, TermParent
+from taxonomy.models import Term, TermParent
 from django.utils.datastructures import MultiValueDict
 from django.forms.widgets import HiddenInput
 from django.forms.models import ModelFormMetaclass
-from taxonomy.taxonomy import TaxonomyAPI
+from django.http.request import QueryDict
+#from taxonomy.taxonomy import TaxonomyAPI
 
 #N One of these forms handles single parenting, the other 
 # multiparenting. much as I would love these two forms to be one, Django
@@ -30,8 +31,7 @@ class TermForm(forms.ModelForm):
     )
         
     def __init__(self, *args, **kwargs):
-        # 3. Ensure 'initial' for purpose of setting parent field 
-        # 'selected'
+        # 3. Ensure 'initial' for purpose of setting parent fields
         if (not 'initial' in kwargs):
             kwargs['initial'] = {}
             
@@ -44,29 +44,23 @@ class TermForm(forms.ModelForm):
         if (instance):
             # probably an 'update'
             print('Termform update')
-            taxonomy_id = instance.taxonomy_id
-            #self.declared_fields['parents'].choices = self.model.term_choices_update(taxonomy_id, instance.id)
-            #self.declared_fields['parent'].choices = self.model.objects.reparent_choices(taxonomy_id, instance.id)
-            api = self._meta.model.api(instance.taxonomy_id).term(instance.id)
+            # setup parent choices
+            api = self._meta.model.api(instance.id)
             self.declared_fields['parent'].choices = api.reparent_choices()
-            print(instance.__repr__())
-            print(api.id_parent().__repr__())
+            # ...then 'select' current parent
             kwargs['initial']['parent'] = api.id_parent()
         else:
             # An 'add' or base form (used by admin)
             print('Termform add')
+            #preserved_filters = request.GET.get('_changelist_filters')
+            print(str(kwargs))
             #initial = kwargs.get('initial')
-            #if (initial):
-            #taxonomy_id = kwargs['initial']['taxonomy_id']
-            # 
-            taxonomy_id = kwargs['initial'].get('taxonomy_id', None)
-            if (not taxonomy_id):
-                # Good grief. Maybe it was passed in Djangos 
-                # super-involuted parameter-passing URL gear
-                taxonomy_id = args[0]['taxonomy_id']
+
             #self.declared_fields['parents'].choices = self.model.term_choices(taxonomy_id)
             #self.declared_fields['parent'].choices = self.model.objects.initial_choices(taxonomy_id)
-            self.declared_fields['parent'].choices = self._meta.model.api(taxonomy_id).initial_choices()
+            # setup parent choices
+            self.declared_fields['parent'].choices = self._meta.model.api.initial_choices()
+            # ...then 'select' current parent
             kwargs['initial']['parent'] = TermParent.NO_PARENT
 
         #print('meta')

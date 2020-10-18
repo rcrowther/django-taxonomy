@@ -1,5 +1,5 @@
 from collections import namedtuple
-from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 
 #from .models import Base, Term, BaseTerm, TermParent, Element
  
@@ -9,14 +9,14 @@ from django.db import transaction
 # FULL_DEPTH = cache.FULL_DEPTH
 # UNPARENT = TermParent.UNPARENT
 NO_PARENT = -1
+BIG_DEPTH = 9999999999
 
 DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
 
 DepthTerm = namedtuple('DepthTerm', ['depth', 'term'])
 
 class ChoiceIterator:
-    def __init__(self, taxonomy_id, depthTerms):
-        #??? self.taxonomy_id = taxonomy_id
+    def __init__(self, depthTerms):
         self.depthTerms = depthTerms
 
     def __iter__(self):
@@ -47,26 +47,23 @@ class TermMethods:
     def __init__(self, 
         model_term, 
         model_termparent, 
-        model_element,
+        model_termelement,
         cache, 
-        taxonomy_id,
         term_id
     ):
-        #self.model_taxonomy = model_taxonomy
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        self.model_element = model_element 
+        self.model_termelement = model_termelement 
         self.cache = cache
-        self.taxonomy_id = taxonomy_id
         self.id = term_id
 
     def depth(self):
-        pos = self.cache.tree_locations(self.taxonomy_id).get(self.id)
-        tree = self.cache.tree(self.taxonomy_id)
+        pos = self.cache.tree_locations().get(self.id)
+        tree = self.cache.ftree()
         return tree[pos].depth
 
     def id_parent(self):
-        pid = self.cache.parent_map(self.taxonomy_id)[self.id]
+        pid = self.cache.parent_map()[self.id]
         if (pid == NO_PARENT):
             return None
         else:
@@ -75,18 +72,18 @@ class TermMethods:
     def id_children(self):
         # catch NO_PARENT
         tid = self.id if (self.id > 0) else NO_PARENT
-        return self.cache.child_map(self.taxonomy_id)[tid]
+        return self.cache.child_map()[tid]
                                 
     def parent(self):
         '''
         return
             Term. If NO_PARENT, None
         '''
-        pid = self.cache.parent_map(self.taxonomy_id)[self.id]
+        pid = self.cache.parent_map()[self.id]
         if (pid == NO_PARENT):
             return None
         else:
-            return self.cache.term_map(self.taxonomy_id)[pid]
+            return self.cache.term_map()[pid]
 
     def children(self):
         '''
@@ -95,8 +92,8 @@ class TermMethods:
         '''
         # catch NO_PARENT
         tid = self.id if (self.id != 0) else NO_PARENT
-        term_map = self.cache.term_map(self.taxonomy_id)
-        return [term_map[e] for e in self.cache.child_map(self.taxonomy_id)[tid]]
+        term_map = self.cache.term_map()
+        return [term_map[e] for e in self.cache.child_map()[tid]]
 
         
     def id_ascendants(self):
@@ -107,7 +104,7 @@ class TermMethods:
         return
             [id, ....]
         '''
-        parent_map = self.cache.parent_map(self.taxonomy_id)
+        parent_map = self.cache.parent_map()
         tid = parent_map[self.id]
         b = []
         while (tid):
@@ -124,7 +121,7 @@ class TermMethods:
         return
             [id, ....]
         '''
-        child_map = self.cache.child_map(self.taxonomy_id)
+        child_map = self.cache.child_map()
         stack = list.copy(child_map[self.id])
         b = []
         while (stack):
@@ -139,8 +136,8 @@ class TermMethods:
         return
             [DepthTid, ....], ordered
         '''
-        pos = self.cache.tree_locations(self.taxonomy_id).get(self.id)
-        tree = self.cache.tree(self.taxonomy_id)
+        pos = self.cache.tree_locations().get(self.id)
+        tree = self.cache.ftree()
         e = tree[pos]
         b = [e]       
         base_depth = e.depth - 1      
@@ -160,9 +157,9 @@ class TermMethods:
         return
             [[DepthTid, ...], ...], ordered
         '''
-        tree = self.cache.tree(self.taxonomy_id)
+        tree = self.cache.ftree()
         l = len(tree)
-        pos = self.cache.tree_locations(self.taxonomy_id).get(self.id)
+        pos = self.cache.tree_locations().get(self.id)
         e = tree[pos]
         base_depth = e.depth
         current_depth = base_depth
@@ -192,22 +189,25 @@ class TermMethods:
         return stack
         
     def ascendent_path(self):
-        term_map = self.cache.term_map(self.taxonomy_id)
+        term_map = self.cache.term_map()
         path = self.depth_id_ascendent_path()
         return [ term_map[e.tid] for e in path ]
     
     def descentant_paths(self):
-        term_map = self.cache.term_map(self.taxonomy_id)
+        term_map = self.cache.term_map()
         paths = self.depth_id_descendant_paths()
         return [ [term_map[e.tid] for e in path] for path in paths]
 
     def depth_id_tree(self, max_depth=None):
-        tree = self.cache.tree(self.taxonomy_id)
+        '''
+        '''
+        # depth is from main tree, not relative?
+        tree = self.cache.ftree()
         l = len(tree)
-        pos = self.cache.tree_locations(self.taxonomy_id).get(self.id)
+        pos = self.cache.tree_locations().get(self.id)
         e = tree[pos]
         base_depth = e.depth
-        max_depth = max_depth if max_depth else 999999
+        max_depth = max_depth if max_depth else BIG_DEPTH
         rel_max_depth = max_depth + base_depth
         b = [e]
         pos += 1        
@@ -228,7 +228,7 @@ class TermMethods:
         return
             [(depth, Term)]
         '''
-        term_map = self.cache.term_map(self.taxonomy_id)
+        term_map = self.cache.term_map()
         tree = self.depth_id_tree(max_depth)
         return [DepthTerm(e.depth, term_map[e.tid]) for e in tree]
         
@@ -237,25 +237,14 @@ class TermMethods:
         Delete the Term and contents.
         Removes descendant terms and
         attached elements.
-        '''
+        ''' 
         descendant_tids = self.id_descendants()
         # Term is not in the descendants
         descendant_tids.append(self.id)
-        with transaction.atomic():
-            self.model_element.objects.filter(tid__in=descendant_tids).delete()
-            self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
-            self.model_term.objects.filter(id__in=descendant_tids).delete()
-        self.cache.clear(self.taxonomy_id)
-
-    def parent_update(self, new_parent_id):
-        '''
-        Update parentage on term parent change
-        For maintenence, will not change the term itself.
-        '''
-        o = self.model_termparent.objects.get(tid=self.id)
-        o.pid = new_parent_id
-        self.model_termparent.save(o)
-        self.cache.clear(self.taxonomy_id)
+        self.model_termelement.objects.filter(tid__in=descendant_tids).delete()
+        self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
+        self.model_term.objects.filter(id__in=descendant_tids).delete()
+        self.cache.clear()
 
     def reparent_choices(self):
         '''
@@ -272,119 +261,45 @@ class TermMethods:
         # add in the seed term_id. Don't want to parent on ourself
         descendants.append(self.id)
         # get them all. seems easier right now if sloooooow.
-        non_descendant_id_tree = (e for e in self.cache.tree(self.taxonomy_id) if (not(e.tid in descendants)))
-        term_map = self.cache.term_map(self.taxonomy_id)
-        return list(ChoiceIterator(self.taxonomy_id, [DepthTerm(e.depth, term_map[e.tid]) for e in non_descendant_id_tree]))
+        non_descendant_id_tree = (e for e in self.cache.ftree() if (not(e.tid in descendants)))
+        term_map = self.cache.term_map()
+        return list(ChoiceIterator([DepthTerm(e.depth, term_map[e.tid]) for e in non_descendant_id_tree]))
         #return list(ChoiceIterator(self.taxonomy_id, (e for e in self.api.tree() if (not(e.term.id in descendants)))))
              
-             
-             
-                  
-class TaxonomyMethods:
-    def __init__(self, 
-        model_taxonomy,
-        model_term, 
-        model_termparent, 
-        model_element, 
-        cache,
-        taxonomy_id
-    ):
-        self.model_taxonomy = model_taxonomy
-        self.model_term = model_term 
-        self.model_termparent = model_termparent 
-        self.model_element = model_element         
-        self.cache = cache    
-        self.id = taxonomy_id         
 
-
-    def term(self, term_id):
-        return TermMethods( 
-            self.model_term, 
-            self.model_termparent, 
-            self.model_element,
-            self.cache, 
-            self.id,
-            term_id
-        )
-
-    def depth_id_tree(self, max_depth=None):
-        '''
-        The tree for this taxonomy
-        return
-              [[DepthTid, ...], ...], ordered
-        '''
-        max_depth = max_depth if max_depth else 999999
-        max_depth += 1
-        return [e for e in self.cache.tree(self.id) if e.depth < max_depth]
-
-    def tree(self, max_depth=None):
-        '''
-        Tree
-        return
-            [(depth, Term)]
-        '''
-        term_map = self.cache.term_map(self.id)
-        tree = self.depth_id_tree(max_depth)
-        return [DepthTerm(e.depth, term_map[e.tid]) for e in tree]
-                
-    def delete(self):
-        '''
-        Delete the tree and contents.
-        Including the Taxonomy object. Also terms, parentage, and attached 
-        elements.
-        '''
-        with transaction.atomic():
-            tree_tids = self.model_terms.filter(taxonomy_id=self.id).values_list('tid', flat=True)
-            self.model_element.objects.filter(tid__in=tree_tids).delete()
-            self.model_termparent.objects.filter(tid__in=tree_tids).delete()
-            self.model_term.objects.filter(tid__in=tree_tids).delete()
-            #self.model_taxonomy.objects.filter(id=self.id).delete()
-            self.cache.clear(self.id)
-        
-    def initial_choices(self):
-        '''
-        Choices for parenting a term on creation
-        '''
-        print('initial choices')
-        return list(ChoiceIterator(self.id, (e for e in self.tree())))
-        
-        
         
 class TaxonomyAPI:
     '''
     API for taxonomy models.
     '''
     def __init__(self, 
-        model_taxonomy,
         model_term, 
         model_termparent, 
-        model_element, 
+        model_termelement, 
     ):
-        self.model_taxonomy = model_taxonomy
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        self.model_element = model_element 
+        self.model_termelement = model_termelement 
     
         # cache
         self._parents = {}
         self._children = {}
         self._terms = {}
-        self._trees = {}
-        self._tree_locations = {}
+        self._ftree = None
+        self._tree_locations = None
 
     # def contribute_to_class(self, model, name):
         # self.model_taxonomy = model
         # setattr(model, name, self)
 
-    def generate_base_data(self, taxonomy_id):
+    def generate_base_data(self):
         from django.db import connection
         terms = {}
         parents = {}
         children = {}
-        PID_Weighted_SQL = "SELECT t.*, tp.pid FROM {} tp INNER JOIN {} t ON tp.tid = t.id WHERE t.taxonomy_id = {} ORDER BY t.weight".format(
+        PID_Weighted_SQL = "SELECT t.*, tp.pid FROM {} tp INNER JOIN {} t ON tp.tid = t.id ORDER BY t.weight".format(
             self.model_termparent._meta.db_table,
             self.model_term._meta.db_table,
-            int(taxonomy_id)
             )
         #print('PID_Weighted_SQL')
         #print(PID_Weighted_SQL)
@@ -403,9 +318,9 @@ class TaxonomyAPI:
         children[NO_PARENT] = []
         for (tid, pid) in parents.items():
             children[pid].append(tid)
-        self._terms[taxonomy_id] = terms
-        self._parents[taxonomy_id] = parents
-        self._children[taxonomy_id] = children
+        self._terms = terms
+        self._parents = parents
+        self._children = children
         
     # def generate_base_data(self, taxonomy_id):
         # terms = {term.id : term for term in self.model_term.objects.filter(taxonomy_id=taxonomy_id)}
@@ -422,27 +337,28 @@ class TaxonomyAPI:
         # self._parents[taxonomy_id] = parents
         # self._children[taxonomy_id] = children
 
-    def child_map(self, taxonomy_id):
-        if (not taxonomy_id in self._children):
-            self.generate_base_data(taxonomy_id)
-        return self._children[taxonomy_id] 
+    #NB self.children will always have a NO_PARENT entry unless cleared.
+    def child_map(self):
+        if (not self._children):
+            self.generate_base_data()
+        return self._children 
 
-    def parent_map(self, taxonomy_id):
-        if (not taxonomy_id in self._parents):
-            self.generate_base_data(taxonomy_id)
-        return self._parents[taxonomy_id] 
+    def parent_map(self):
+        if (not self._children):
+            self.generate_base_data()
+        return self._parents 
 
-    def term_map(self, taxonomy_id):
-        if (not taxonomy_id in self. _terms):
-            self.generate_base_data(taxonomy_id)
-        return self._terms[taxonomy_id]
+    def term_map(self):
+        if (not self._children):
+            self.generate_base_data()
+        return self._terms
     
-    def _generate_tree(self, taxonomy_id):
+    def _generate_tree(self):
         '''
         return
             [DepthTid] Tree depths are from 0...
         '''
-        child_map = self.child_map(taxonomy_id) 
+        child_map = self.child_map() 
         stack = [iter(child_map[NO_PARENT])]
         depth = 0
         while (stack):
@@ -463,56 +379,90 @@ class TaxonomyAPI:
                     stack.append(iter(child_ids))
                     break
 
-    def tree(self, taxonomy_id):
-        if (not taxonomy_id in self._trees):
+    # rename depth_id_tree
+    def ftree(self):
+        '''
+        The tree for this taxonomy
+        return
+              [DepthTid, ...], ordered
+        '''
+        if (self._ftree is None):
             # list, because we need to run the generator, or it will
             # exhaust on multiple calls
-            self._trees[taxonomy_id] = list(self._generate_tree(taxonomy_id))
-        return self._trees[taxonomy_id]
+            self._ftree = list(self._generate_tree())
+        return self._ftree
     
     # index
     IdxDepth = namedtuple('IdxDepth', ['idx', 'depth'])
 
-    def tree_locations(self, taxonomy_id):
-        if (not taxonomy_id in self._tree_locations):
-            self._tree_locations[taxonomy_id] = {e.tid : idx for idx, e in enumerate(self.tree(taxonomy_id))}
-        return self._tree_locations[taxonomy_id]
+    def tree_locations(self):
+        if (self._tree_locations is None):
+            self._tree_locations = {e.tid : idx for idx, e in enumerate(self.ftree())}
+        return self._tree_locations
                  
-    def clear(self, taxonomy_id):
+    def clear(self):
         '''
         Empty cache for a given taxonomy
         '''
-        # clear base data
-        self._parents.pop(taxonomy_id, None)
-        self._children.pop(taxonomy_id, None)
-        self._terms.pop(taxonomy_id, None)
-        # clear location
-        self._tree_locations.pop(taxonomy_id, None)
-        # clear tree
-        self._trees.pop(taxonomy_id, None)
-    
-    def __call__(self, taxonomy_id):
-        return TaxonomyMethods( 
-            self.model_taxonomy,
+        self._parents = {}
+        self._children = {}
+        self._terms = {}
+        self._ftree = None
+        self._tree_locations = None
+        
+    def __call__(self, term_id):
+        return TermMethods( 
             self.model_term, 
             self.model_termparent, 
-            self.model_element, 
-            self,
-            taxonomy_id
+            self.model_termelement,
+            self, 
+            term_id
         )
 
-    def taxonomy_save(self, obj):
-        self.model_taxonomy.save(obj)
-
-    def term_save(self, new_parent_id, obj):
+    def save(self, new_parent_id, obj):
         '''
-        Add a term.
+        Save a term.
         Add necessary parentage on new term. Term parent is not checked 
         against taxonomy_id.
         '''
-        with transaction.atomic():
-            self.model_taxonomy.save(obj)
-            self.model_termparent.objects.create(pid=new_parent_id, tid=obj.id)
-            self.clear(obj.taxonomy_id)
+        self.model_term.save(obj)
+        try:
+            o = self.model_termparent.objects.get(tid=obj.id)
+            o.pid = new_parent_id
+        except ObjectDoesNotExist:
+            o = self.model_termparent(pid=new_parent_id, tid=obj.id)
+        self.model_termparent.save(o)
+        self.clear()
+
+    def delete(self):
+        '''
+        Delete the tree and contents.
+        Including the Taxonomy object. Also terms, parentage, and attached 
+        elements.
+        '''
+        self.model_termelement.objects.all().delete()
+        self.model_termparent.objects.all().delete()
+        self.model_term.objects.all().delete()
+        self.clear(self.id)
 
 
+
+    def depth_id_tree(self, max_depth=None):
+        max_depth = max_depth if max_depth else BIG_DEPTH
+        return [e for e in self.ftree() if e.depth < max_depth]
+
+    def tree(self, max_depth=None):
+        '''
+        Tree
+        return
+            [(depth, Term)]
+        '''
+        term_map = self.term_map()
+        return [DepthTerm(e.depth, term_map[e.tid]) for e in self.depth_id_tree(max_depth)]
+        
+    def initial_choices(self):
+        '''
+        Choices for parenting a term on creation
+        '''
+        print('initial choices')
+        return list(ChoiceIterator((e for e in self.tree())))

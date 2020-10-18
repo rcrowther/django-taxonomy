@@ -1,10 +1,9 @@
 from django.contrib import admin
-from taxonomy.models import Taxonomy, Term, TermParent, TermElement
+from taxonomy.models import Term, TermParent, TermElement
 from taxonomy.forms import TermForm #, MultiTermForm
 from django import forms
 from django.utils.html import format_html
 from functools import partial, reduce, update_wrapper
-from taxonomy.taxonomy import TaxonomyAPI
 from django.http import HttpResponseRedirect
 
 
@@ -15,49 +14,19 @@ from django.forms.models import (
     BaseInlineFormSet, inlineformset_factory, modelform_defines_fields,
     modelform_factory, modelformset_factory,
 )
-class TaxonomyAdmin(admin.ModelAdmin):
-    fields = ('name', 'slug', 'description', 'weight')
-    list_display = ('name', 'term_list', 'term_add',)
-    
-    # Construct a URL for adding terms loaded with a taxonomy_id on the GET 
-    def term_add(self, obj):
-        return format_html('<a href="/admin/taxonomy/term/add?taxonomy_id={}" class="button">Add term</a>',
-            obj.pk
-        )
-    term_add.short_description = 'Add term'
 
-    # Construct a URL for listing terms within a tree (on the GET) 
-    def term_list(self, obj):
-        return format_html('<a href="/admin/taxonomy/term?taxonomy_id={}" class="button">List terms</a>',
-            obj.pk
-        )
-    term_list.short_description = 'List terms'
-        
-    def save_model(self, request, obj, form, change):
-        # Save the tree. 
-        # if multiple changed to single, we need to do some big-scale
-        # hackery on TermParent (single to multiple is no more than a 
-        # change of attribute) 
-        # if ('is_single' in form.changed_data and obj.is_single):
-            # # changed to single parenting 
-            # Tree.objects.multiple_to_single(obj.id)
-            
-        # Save the tree object
-        obj.save()
-        
-admin.site.register(Taxonomy, TaxonomyAdmin)
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
-from taxonomy.taxonomy import TaxonomyAPI
 
 csrf_protect_m = method_decorator(csrf_protect)
 
 
 def indented_term_titles(obj):
-    depth = TaxonomyAPI(obj.taxonomy_id).term(obj.id).depth()
-    if (depth > 1):
-        return '\u2007\u2007\u2007\u2007' * (depth - 2) + "\u2007└─\u2007" + obj.name
+    #depth = TaxonomyAPI(obj.taxonomy_id).term(obj.id).depth()
+    depth = obj.api(obj.id).depth()
+    if (depth > 0):
+        return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007└─\u2007" + obj.name
     else:
         return  obj.name
     
@@ -67,7 +36,7 @@ from django.views.generic import RedirectView
 class TermAdmin(admin.ModelAdmin):
     #fields = ('tree', 'name', 'slug', 'description', 'weight')
     #form = forms.TermForm
-    fields = ('taxonomy_id', 'parent', 'name', 'slug', 'description', 'weight')
+    fields = ('parent', 'name', 'slug', 'description', 'weight')
     #N cant be readonly, stops us pushing a value in.
     #readonly_fields = ('taxonomy_id',)
     #form = forms.ModelForm
@@ -87,20 +56,14 @@ class TermAdmin(admin.ModelAdmin):
     #! also need to do is_unique
     def save_model(self, request, obj, form, change):
         pid = form.cleaned_data.get('parent')
-        tid = obj.id
-        if (not change):        
-            #TaxonomyAPI.term_save(pid, obj)
-            obj.api.term_save(pid, obj)
-        elif ('parent' in form.changed_data):
-            #TaxonomyAPI(obj.taxonomy_id).term(tid).parent_update(pid)        
-            obj.api(obj.taxonomy_id).term(tid).parent_update(pid)        
+        obj.api.save(pid, obj)       
 
 
     def delete_model(self, request, obj):
         """
         Given a model instance delete it from the database.
         """
-        obj.api(obj.taxonomy_id).term(obj.id).delete()
+        obj.api(obj.id).delete()
 
 
     def delete_queryset(self, request, queryset):
@@ -138,13 +101,7 @@ class TermAdmin(admin.ModelAdmin):
         # Personally, I think this is horrible
         # anyway, the response needs to be a form
         if isinstance(r, TermForm):
-            # for an update form the id comes through the instance
-            # (there's always an instance, but it may be empty)
-            taxonomy_id = r.context_data['adminform'].form.instance.taxonomy_id
-            if (not taxonomy_id):
-                # for a add form the id comes in GET
-                taxonomy_id = request.GET['taxonomy_id']
-            r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
+            r.context_data['tree_name'] = self.model._meta.model_name
         return r
 
     def changelist_view(self, request, extra_context=None):
@@ -152,36 +109,30 @@ class TermAdmin(admin.ModelAdmin):
         # Personally, I think this is horrible
         r = super().changelist_view(request, extra_context=None)
         if (not (isinstance(r, HttpResponseRedirect))):
-            taxonomy_id = request.GET.get('taxonomy_id')
-            r.context_data['tree_name'] = Taxonomy.objects.get(id=taxonomy_id).name
+            r.context_data['tree_name'] = self.model._meta.model_name
+            print('changelist_view')
+            #print(str(r))
+            #print(str(r.context_data['available_apps'][2]['models'][3]['add_url']))
+            #r.context_data['available_apps'][2]['models'][3]['add_url'] =  '/admin/taxonomy/term/add?taxonomy_id=1'
+
         return r
-        
+
+# {'site_title': 'Django site admin', 'site_header': 'Django administration', 'site_url': '/', 'has_permission': True, 
+# 'available_apps': [
+# {'name': 'Article', 'app_label': 'article', 'app_url': '/admin/article/', 'has_module_perms': True, 'models': [{'name': 'Articles', 'object_name': 'Article', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/article/article/', 'add_url': '/admin/article/article/add/', 'view_only': False}]}, {'name': 'Authentication and Authorization', 'app_label': 'auth', 'app_url': '/admin/auth/', 'has_module_perms': True, 'models': [{'name': 'Groups', 'object_name': 'Group', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/auth/group/', 'add_url': '/admin/auth/group/add/', 'view_only': False}, {'name': 'Users', 'object_name': 'User', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/auth/user/', 'add_url': '/admin/auth/user/add/', 'view_only': False}]}, {'name': 'Taxonomy', 'app_label': 'taxonomy', 'app_url': '/admin/taxonomy/', 'has_module_perms': True, 'models': [{'name': 'Taxonomys', 'object_name': 'Taxonomy', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/taxonomy/taxonomy/', 'add_url': '/admin/taxonomy/taxonomy/add/', 'view_only': False}, {'name': 'Term elements', 'object_name': 'TermElement', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/taxonomy/termelement/', 'add_url': '/admin/taxonomy/termelement/add/', 'view_only': False}, {'name': 'Term parents', 'object_name': 'TermParent', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 'admin_url': '/admin/taxonomy/termparent/', 'add_url': '/admin/taxonomy/termparent/add/', 'view_only': False}, 
+# {'name': 'Terms', 'object_name': 'Term', 'perms': {'add': True, 'change': True, 'delete': True, 'view': True}, 
+    # 'admin_url': '/admin/taxonomy/term/', 'add_url': '/admin/taxonomy/term/add/', 'view_only': False}]}
+# ],
+ # 'is_popup': False, 'is_nav_sidebar_enabled': True, 'module_name': 'terms', 'selection_note': '0 of 3 selected', 'selection_note_all': 'All 3 selected', 'title': 'Select term to change', 'to_field': None, 
+# 'cl': <django.contrib.admin.views.main.ChangeList object at 0x7f301756e070>, 'media': Media(css={}, js=['admin/js/vendor/jquery/jquery.js', 'admin/js/jquery.init.js', 'admin/js/core.js', 'admin/js/admin/RelatedObjectLookups.js', 'admin/js/actions.js', 'admin/js/urlify.js', 'admin/js/prepopulate.js', 'admin/js/vendor/xregexp/xregexp.js']), 
+# 'has_add_permission': True, 'opts': <Options for Term>, 
+# 'action_form': <ActionForm bound=False, valid=Unknown, fields=(action;select_across)>, 
+# 'actions_on_top': True, 'actions_on_bottom': False, 'actions_selection_counter': True, 'preserved_filters': '_changelist_filters=taxonomy_id%3D1', 'tree_name': 'site'
+# }
+
 
     # # Thumpingly ugly overload of URLs to guess at ways of unrendering
-    # def get_urls(self):
-        # from django.urls import path
 
-        # def wrap(view):
-            # def wrapper(*args, **kwargs):
-                # return self.admin_site.admin_view(view)(*args, **kwargs)
-            # wrapper.model_admin = self
-            # return update_wrapper(wrapper, view)
-
-        # info = self.model._meta.app_label, self.model._meta.model_name
-
-        # return [
-            # path('', wrap(self.changelist_view), name='%s_%s_changelist' % info),
-            # path('add/', wrap(self.add_view), name='%s_%s_add' % info),
-            # path('autocomplete/', wrap(self.autocomplete_view), name='%s_%s_autocomplete' % info),
-            # path('<path:object_id>/history/', wrap(self.history_view), name='%s_%s_history' % info),
-            # path('<path:object_id>/delete/', wrap(self.delete_view), name='%s_%s_delete' % info),
-            # #path('<path:object_id>/change/', wrap(self.change_view), name='%s_%s_change' % info),
-            # #path('<path:object_id>/change/', wrap(self.change_view), name='%s_%s_change' % info),
-            # # For backwards compatibility (was the change url before 1.9)
-            # #path('<path:object_id>/', wrap(RedirectView.as_view(
-            # #    pattern_name='%s:%s_%s_change' % ((self.admin_site.name,) + info)
-            # #))),
-        # ]
         
     #def get_form(self, request, obj=None, change=False, **kwargs):
     #    form = super().get_form(request, obj, change, **kwargs)
@@ -200,3 +151,4 @@ admin.site.register(TermParent, TermParentAdmin)
 class TermElementAdmin(admin.ModelAdmin):
     fields = ('tid', 'eid')
 admin.site.register(TermElement, TermElementAdmin)
+

@@ -12,6 +12,10 @@ class FlatTreeRenderer():
         return html.escape(data.name)
 
     def rend(self, tree):
+        '''
+        tree
+            [(depth, Term)]
+        '''
         b = ['<ul class="tree">']
         prev_depth = 99999999
 
