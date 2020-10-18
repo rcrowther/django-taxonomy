@@ -5,15 +5,13 @@ from django.core.exceptions import ObjectDoesNotExist
  
 
 # constants
-# ROOT = TermParent.NO_PARENT
-# FULL_DEPTH = cache.FULL_DEPTH
-# UNPARENT = TermParent.UNPARENT
 NO_PARENT = -1
 BIG_DEPTH = 9999999999
 
 DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
-
 DepthTerm = namedtuple('DepthTerm', ['depth', 'term'])
+
+
 
 class ChoiceIterator:
     def __init__(self, depthTerms):
@@ -208,16 +206,20 @@ class TermMethods:
         e = tree[pos]
         base_depth = e.depth
         max_depth = max_depth if max_depth else BIG_DEPTH
-        rel_max_depth = max_depth + base_depth
-        b = [e]
+        #rel_max_depth = max_depth + base_depth
+        #b = [e]
+        b = [DepthTid(0, e.tid)]
         pos += 1        
         while (pos < l):
             e = tree[pos]
-            if (e.depth <= base_depth):
+            reldepth = e.depth - base_depth
+            if (reldepth < 1):
+            #if (e.depth <= base_depth):
                 # i.e. if not a descendant of the given tid
                 break
-            if (e.depth < rel_max_depth):
-                b.append(e) 
+            if (reldepth < max_depth):
+            #if (e.depth < rel_max_depth):
+                b.append(DepthTid(reldepth, e.tid)) 
             pos += 1        
         return b      
 
@@ -379,7 +381,6 @@ class TaxonomyAPI:
                     stack.append(iter(child_ids))
                     break
 
-    # rename depth_id_tree
     def ftree(self):
         '''
         The tree for this taxonomy
@@ -445,11 +446,11 @@ class TaxonomyAPI:
         self.model_term.objects.all().delete()
         self.clear(self.id)
 
-
-
     def depth_id_tree(self, max_depth=None):
-        max_depth = max_depth if max_depth else BIG_DEPTH
-        return [e for e in self.ftree() if e.depth < max_depth]
+        if (max_depth is None):
+            return list.copy(self.ftree())
+        else:
+            return [e for e in self.ftree() if e.depth < max_depth]
 
     def tree(self, max_depth=None):
         '''
