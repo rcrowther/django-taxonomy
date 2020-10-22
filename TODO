@@ -2,13 +2,10 @@
 Is it possible to inline template attributes? We want attributes.
 
 == Admin list
-needs indents
+indent title column rename
+Needs abstracting for model
 
 == Admin forms
-Term needs a tree to send to
-Humm. Do not like selectors
-Not selecting parentage in form
-
 Term parents displaying the null option badly as '-1'
 Term element, Term parents - no verification term exists.
 
@@ -16,23 +13,18 @@ Humm. Verification (for what?) not hard to add.
 
 Validate tree_id never chages for a term.
 
-Can't parent term to self!
-Change of parent not registering.
-Need to override tree/term delete
-
 == API
 get() query
 deletes to be enabled
-depth not respected
-Reparent_choices is very messy
+Reparent_choices is a mess
 
 == Rendering
 Why are dispalys sometimes hanging?
 
 == SVGs
-Can make template tags?
 Can make relative sizing?
 
 == Models
 Abstract models
 Get rid of slugs, they're for abstraction
+Reverse lookupsb

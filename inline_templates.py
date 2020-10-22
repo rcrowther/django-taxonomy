@@ -6,6 +6,32 @@ from django.utils import html
 import math
 
 
+
+class CrumbRenderer():
+    def data_template(self, data):
+        d = '<a href="{1}">{0}</a>'.format(
+            html.escape(data.name),
+            #? probably not escape, but something else to protect URLs
+            html.escape(data.slug),
+        )
+        return d
+
+    def rend(self, term, spacer="\u2007>\u2007"):
+        '''
+        tree
+            [(depth, Term)]
+        '''
+        b = ['<ul class="breadcrumb">']
+        for e in term.api.ascendent_path().reverse():
+            depth = e[0]
+            b.append('<li>')
+            b.append(self.data_template(e))
+            b.append('</li>')
+        b.append('</ul>')
+        return ''.join(b)    
+
+
+    
 #? add attributes for wrapping tags.
 class FlatTreeRenderer():
     def data_template(self, data):

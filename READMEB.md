@@ -8,26 +8,32 @@ This app is called 'django-taxonomy', but internally the module is called 'taxon
 - [django-packages](https://github.com/callowayproject/django-categories)
     This project is mature with many commits. It uses an MPTT implementation.
 
+- [django-treebeard](https://github.com/django-treebeard/django-treebeard)
+    Django Treebeard is mature, has multiple tree implementations, an API, and AJAX Admin. It's a legendary Django package. It can do everything this package can do and more.
+
 - [django-modelcluster](https://github.com/wagtail/django-modelcluster)
-This is a chunk of the Wagtail CMS. It allows you to join model objects togrether, even as they are created, then save in a chink. Not quite the same thing as a taxonomy, but it does define relations between models, so if you are looking for that, it may be a direct fit.
+    This is a chunk of the Wagtail CMS. It allows you to join model objects together, even as they are created, then save in a chink. Not quite the same thing as a taxonomy, but it does define relations between models, so if you are looking for that, it may be a direct fit.
  
 ## Why you may or may not want this app
 Pro
-- Simple to maintain
-- Displays category titles and contents efficiently
-- Several display and support options builtin 
+- It's simple.
+- It can be subclassed
+- It's got displays and effective Admin builtin 
 
 Con
-- Can't define term information
 - No multiparent (node map) option
 - Poor at finding descending node elements, so poor it has not been implemented
 
-If you are building a shopping site, you will want an MPTT structure. But if you are creating a categorisation system, or gathering pages on a website, you may prefer this.
+If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT structure. Or maybe Treebeard's PathTree implementation. This is not that app.
+
+This app has only one (non)feature over the heavyweights here. It is simple. 
+It has only 800 (or near) lines of code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. 
+So if you don't need the weight, but want to gather pages on a website, you may prefer this.
 
 ## Overview
 ![overview diagram](screenshots/overview.svg?raw=true&sanitize=true)
 
-The taxonomy presents a model 'Taxonomy' which works as a root to any tree of categories. Then you add 'Terms' (categories) to the root. To any term you can attach any number of elements. An element is a number, and would usually be a model id.
+Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every model becomes a tree of terms. To any term you can optionally attach elements. An element is a number, and would usually be a model id.
 
 
 ## If you have done this before
@@ -37,31 +43,57 @@ The taxonomy presents a model 'Taxonomy' which works as a root to any tree of ca
 ## Admin
 
 ## The API
-As an app, Taxonomy is spread across several DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called the manager TaxonomyAPI. You'll use it for access to taxonomy data (unless you're hacking or haave a broken installation). 
+As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation). 
 
-For working with data in the taxonomy, this gets you to methods for a single taconomy,
+The api hangs off any model based on TermBase, and can also be acessed from any TermBase class. Using the builtin model Term,
 
-    from taxonomy.taxonomy import TaxonomyAPI
+    from taxonomy.models import Term
 
-    TaxonomyAPI(1)
+    api = Term.api
 
-This gets you to methods for aa single term,
+Like the queryset manager 'objects', the api is also present on any TermBased object,
 
+    from taxonomy.models import Term
 
-    from taxonomy.taxonomy import TaxonomyAPI
+    obj = Term.objects.get(id=1)
+    obj,api
 
-        TaxonomyAPI(1).term(3)
+The attribute 'api' gives you some methods for one tree,
 
-As for the methods, there's a lot of them. For making pages, the simple-named methods return full term data,
+    delete() (whole tree)
+    save() (a Term)
+    tree()
 
-    parent
-    children
-    ascendent_path
-    descendent_paths
+And a few more. You can call the API with a Term id, which gives you methods for a single TermBase,
 
-Many of the other methods only deal with DB ids (the methods above populate these trees with term data after the shape of the data has been generated).
+    from taxonomy.models import Term
 
-Some methods build from the tree, so come with added data, the depth a term should be rendered at. These kinds of collections are mode from tuples (depth_in_tree, term_id).  This is the code the app uses to render the select boxes in Admin.
+    api_for_term_4 = Term.api(4)
+
+This gets you many methods. For making pages, the simple-named methods return full term data,
+
+    parent()
+    children()
+    ascendent_path()
+    descendent_paths()
+    tree(self, max_depth=None)
+
+Some of the other methods only deal with DB ids.
+
+The structure of tree data is worth mentioning. It is usually a flat tree of depth and Termdata coupled in a Tuple, gathered into a list,
+
+    [
+        (0, Term1)
+        (1, Term2)
+        (1, Term3)
+        (0, Term4)
+        (1, Term5)
+        (2, Term6)
+        (3, Term7)
+        ...
+    ]
+
+This is the kind of data the app uses to render the select boxes in Admin.
 
 One point worth knowing is that, since these taxonomies are single-parent, there can be only one path back to the taxonomy root. But there can be several paths towards leaves. Ask for descendant_paths() and you will get a list of lists.
 
@@ -85,17 +117,19 @@ Some stock Django. Add some taxonomy data to a View,
         
         def get_context_data(self, **kwargs):
             ctx = super().get_context_data(**kwargs)
-            ctx['top_bar'] = str(TaxonomyAPI(1).term(2).ascendent_path())
+            ctx['breadcrumb'] = str(self.obj.api(self.obj.id).ascendent_path())
             return ctx
 
-anD in the template 'page_detail.html',
+and in the template 'page_detail.html',
 
     <nav class="topbar">
-        {% for term in nav_bar %}
-        <div class="menu-item">
-            <a href="/category/{{ term.title }}">{{ term.title }}</a>
-        </div>
-        {% endfor %}
+        <ul>
+            {% for term in breadcrumb %}
+            <li class="menu-item">
+                <a href="/category/{{ term.title }}">{{ term.title }}</a>
+            </li>
+            {% endfor %}
+        </ul>
     </nav>
 
 
@@ -154,7 +188,7 @@ Use a view to send a tree (the usual depth-Term type),
         ....
         ctx['nav_bar'] = TaxonomyAPI(1).term(1).tree()
 
-Then render that dat with this tag,
+Then render that data with this tag,
 
     {% load taxonomy_displays %}
         ...
@@ -186,12 +220,52 @@ The tags use a class inline_templates.Stacktree, which is more flexible than the
     return render(request, 'article.html', {'article': article})
 
 
+## Attaching objects to Terms
+### Term recorded in object
+This is the way most people think about this. A Page has a category of 'Psychology'.
+
+You'll need to add a field to your Model. Usually you would use a ForeignKey (unless your data can fall into many categories, use a ManyToManyField).
+
+    from taxonomy.models import Term
+
+    class MyModel(models.Model):
+        category = models.ForeignKey(
+            Term,
+            on_delete=models.CASCADE,
+        )
+
+You'll get the usual Django setup in Admin like this. If you have a lot of Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
+
+#### A list of siblings
+In the view context,
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['siblings'] = Article.objects.filter(category=self.get_object().category)
+        return ctx
+
+Then render 'siblings' somehow.
+
+
+### Notes
+I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I don't think category data should intrude on objects.
+
+Hoever, the nice way to say this, Django has no ability. The ORM, the model fields, the Admin, and the form-building all have no ability to organise the data otherwise. I've stuck with the above, which plays ok with Django. What I wold prefer is make an object--term table, and a form for it. But in Django, that requires hand-crafting model specifics, and cannot be part of the main app. 
+
+## URLs for Taxonomies
+Not all taxonomies will need URLs, but a taxonomy with URLs can make the base of a site. More and more, for example, CMS assume that visible pages on a site are organised as a tree.
+
+First, you need to decide how your URLs will look. Will they include a subject? There is advice [that they should not](https://www.w3.org/Provider/Style/URI). 
+
+
+
+
 
 ## Implementation notes
 There are a few ways to implement a tree. Here is our version.
 
 ### Creating a Root Term
-You can only attach data elements to terms, not the 'taxonomy' instance at the base. If you would like a taxonomy where elements can be attached to the base, start a base then add a single term which will be the 'root term'. Build from there e.g. ::
+You can set any number of terms at base. If you would like a taxonomy where elements can be attached to a singular base, start a single term which will be the 'root term'. Build from there e.g. ::
 
     base = 'car categories'
     - Cars
@@ -200,7 +274,7 @@ You can only attach data elements to terms, not the 'taxonomy' instance at the b
     -- sport
     ...
   
-etc. now you can attach an unclassified car to the generic term 'cars'.
+etc.
 
 ## EndNote
 ### The evironment

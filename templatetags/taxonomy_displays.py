@@ -60,3 +60,37 @@ def flat_tree(parser, token):
         )
 
     return FlatTreeRendererNode(tree_data)
+
+
+from django.utils import html
+
+class BreadcrumbNode(template.Node):
+    def __init__(self, crumb_terms):
+        self.crumb_terms = template.Variable(crumb_terms)
+        
+    def render(self, context):
+        b = ['<ul class="breadcrumb">']
+        for e in self.crumb_terms.resolve(context):
+            b.append('<li>')
+            b.append('<a href="/category/{1}">{0}</a>'.format(
+                html.escape(e.name),
+                #? probably not escape, but something else to protect URLs
+                e.slug
+                )
+            )
+            b.append('</li>')
+        b.append('</ul>')
+        #raise Exception
+        return mark_safe(''.join(b))
+
+@register.tag        
+def breadcrumb(parser, token):
+    try:
+        # split_contents() knows not to split quoted strings.
+       tag_name, crumb_terms = token.split_contents()
+    except ValueError:
+        raise template.TemplateSyntaxError(
+            "%r tag requires arguments: crumb_terms" % token.contents.split()[0]
+        )
+
+    return BreadcrumbNode(crumb_terms)

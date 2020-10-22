@@ -1,7 +1,6 @@
 from collections import namedtuple
 from django.core.exceptions import ObjectDoesNotExist
 
-#from .models import Base, Term, BaseTerm, TermParent, Element
  
 
 # constants
@@ -11,7 +10,8 @@ BIG_DEPTH = 9999999999
 DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
 DepthTerm = namedtuple('DepthTerm', ['depth', 'term'])
 
-
+# class NoTermElementTable(AttributeError):
+    # pass
 
 class ChoiceIterator:
     def __init__(self, depthTerms):
@@ -45,13 +45,13 @@ class TermMethods:
     def __init__(self, 
         model_term, 
         model_termparent, 
-        model_termelement,
+        #model_termelement,
         cache, 
         term_id
     ):
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        self.model_termelement = model_termelement 
+        #self.model_termelement = model_termelement 
         self.cache = cache
         self.id = term_id
 
@@ -132,7 +132,7 @@ class TermMethods:
         '''
         Tree ascscendants
         return
-            [DepthTid, ....], ordered
+            [DepthTid, ....], ordered from start term to root.
         '''
         pos = self.cache.tree_locations().get(self.id)
         tree = self.cache.ftree()
@@ -145,7 +145,7 @@ class TermMethods:
             if (base_depth >= e.depth):
                 b.append(e)
                 base_depth -= 1
-        b.reverse()
+        #b.reverse()
         return b
 
     def depth_id_descendant_paths(self):
@@ -187,6 +187,10 @@ class TermMethods:
         return stack
         
     def ascendent_path(self):
+        '''
+        Path of Terms 
+            [Term, ....], ordered from start term to root.
+        '''
         term_map = self.cache.term_map()
         path = self.depth_id_ascendent_path()
         return [ term_map[e.tid] for e in path ]
@@ -198,6 +202,10 @@ class TermMethods:
 
     def depth_id_tree(self, max_depth=None):
         '''
+        Tree of depths and term ids.
+        
+        return
+            [DepthTid, ...] depth from 9
         '''
         # depth is from main tree, not relative?
         tree = self.cache.ftree()
@@ -243,7 +251,8 @@ class TermMethods:
         descendant_tids = self.id_descendants()
         # Term is not in the descendants
         descendant_tids.append(self.id)
-        self.model_termelement.objects.filter(tid__in=descendant_tids).delete()
+        #if (self.model_termelement):
+        #    self.model_termelement.objects.filter(tid__in=descendant_tids).delete()
         self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
         self.model_term.objects.filter(id__in=descendant_tids).delete()
         self.cache.clear()
@@ -267,8 +276,19 @@ class TermMethods:
         term_map = self.cache.term_map()
         return list(ChoiceIterator([DepthTerm(e.depth, term_map[e.tid]) for e in non_descendant_id_tree]))
         #return list(ChoiceIterator(self.taxonomy_id, (e for e in self.api.tree() if (not(e.term.id in descendants)))))
-             
+    #?
+    # def element_save(self, element_id):
+        # if (not self.model_termelement):
+            # raise NoTermElementTable()
+        # obj = self.model_termelement(tid=self.id, eid=element_id)
+        # self.model_termelement,save(obj)
 
+    # def element_delete(self, element_id):
+        # if (not self.model_termelement):
+            # raise NoTermElementTable()
+        # self.model_termelement,get(eid=element_id).delete()
+        
+        
         
 class TaxonomyAPI:
     '''
@@ -277,11 +297,11 @@ class TaxonomyAPI:
     def __init__(self, 
         model_term, 
         model_termparent, 
-        model_termelement, 
+        #model_termelement, 
     ):
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        self.model_termelement = model_termelement 
+        #self.model_termelement = model_termelement 
     
         # cache
         self._parents = {}
@@ -415,7 +435,7 @@ class TaxonomyAPI:
         return TermMethods( 
             self.model_term, 
             self.model_termparent, 
-            self.model_termelement,
+            #self.model_termelement,
             self, 
             term_id
         )
@@ -441,7 +461,8 @@ class TaxonomyAPI:
         Including the Taxonomy object. Also terms, parentage, and attached 
         elements.
         '''
-        self.model_termelement.objects.all().delete()
+        #if (self.model_termelement):
+        #    self.model_termelement.objects.all().delete()
         self.model_termparent.objects.all().delete()
         self.model_term.objects.all().delete()
         self.clear(self.id)
@@ -460,7 +481,13 @@ class TaxonomyAPI:
         '''
         term_map = self.term_map()
         return [DepthTerm(e.depth, term_map[e.tid]) for e in self.depth_id_tree(max_depth)]
-        
+
+    # def element_term_id(self, element_id):
+        # if (not self.model_termelement):
+            # raise NoTermElementTable()
+        # obj = self.model_termelement.objects.get(eid=element_id)
+        # return obj.tid
+                
     def initial_choices(self):
         '''
         Choices for parenting a term on creation
