@@ -18,15 +18,6 @@ class TermParentAdmin(admin.ModelAdmin):
     fields = ('tid', 'pid')
 admin.site.register(TermParent, TermParentAdmin)
 
-
-
-def indented_term_titles(obj):
-    #depth = TaxonomyAPI(obj.taxonomy_id).term(obj.id).depth()
-    depth = obj.api(obj.id).depth()
-    if (depth > 0):
-        return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007└─\u2007" + obj.name
-    else:
-        return  obj.name
     
     
 from django.views.generic import RedirectView
@@ -36,38 +27,37 @@ class TermAdmin(admin.ModelAdmin):
 
     #form = forms.ModelForm
     form = TermForm
-    #form = MultiTermForm
     change_form_template = 'taxonomy/term_change_form.html'
     change_list_template = 'taxonomy/term_change_list.html'
 
-    list_display = (indented_term_titles,)
+    list_display = ('indented_term_titles',)
     search_fields = ['name']
 
-    # Construct a URL for adding element loaded with a term_id on the GET 
-    # def termelement_add(self, obj):
-        # return format_html('<a href="/admin/taxonomy/termelement/add?tid={}" class="button">Add element</a>',
-            # obj.id
-        # )
-    # termelement_add.short_description = 'Add element'
-# ModelAdmin.get_list_display(request)
-# ModelAdmin.get_list_display_links(request, list_display)¶
-    #! save is not always called? Use a post_save signal?
-    #! test this i_single save
-    #! also need to do is_unique
+    def indented_term_titles(self, obj):
+        depth = obj.api(obj.id).depth()
+        if (depth > 0):
+            return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007└─\u2007" + obj.name
+        else:
+            return  obj.name
+
+    indented_term_titles.short_description = 'Name'
+    
+
     def save_model(self, request, obj, form, change):
+        # usually the API would be called, but if not, this uses the 
+        # API too.
         pid = form.cleaned_data.get('parent')
         obj.api.save(pid, obj)       
 
-
     def delete_model(self, request, obj):
-        """
-        Given a model instance delete it from the database.
-        """
+        # usually the API would be called, but if not, this uses the 
+        # API too.
         obj.api(obj.id).delete()
 
 
     def delete_queryset(self, request, queryset):
-        """Given a queryset, delete it from the database."""
+        # usually the API would be called, but if not, this uses the 
+        # API too.
         #? More efficient with dedicated api.delete?
         print("Admin queryset delete...")
         for term in queryset:
@@ -94,28 +84,6 @@ class TermAdmin(admin.ModelAdmin):
         # adittional data. Thus, fail validation.
         #! maybe reintroduce some Admin tweaks?
         return self.form
-
-    def _changeform_view(self, request, object_id, form_url, extra_context):
-        # add taxonomy_id to context
-        r = super()._changeform_view(request, object_id, form_url, extra_context)
-        # Personally, I think this is horrible
-        # anyway, the response needs to be a form
-        if isinstance(r, TermForm):
-            r.context_data['tree_name'] = self.model._meta.model_name
-        return r
-
-    def changelist_view(self, request, extra_context=None):
-        # add taxonomy_id to context
-        # Personally, I think this is horrible
-        r = super().changelist_view(request, extra_context=None)
-        if (not (isinstance(r, HttpResponseRedirect))):
-            r.context_data['tree_name'] = self.model._meta.model_name
-            print('changelist_view')
-            #print(str(r))
-            #print(str(r.context_data['available_apps'][2]['models'][3]['add_url']))
-            #r.context_data['available_apps'][2]['models'][3]['add_url'] =  '/admin/taxonomy/term/add?taxonomy_id=1'
-
-        return r
 
 admin.site.register(Term, TermAdmin)
 

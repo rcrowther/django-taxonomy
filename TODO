@@ -1,17 +1,26 @@
 == Inline templates
 Is it possible to inline template attributes? We want attributes.
 
+== Models
+Change to name 'category'
+Check subclassing
+
 == Admin list
 indent title column rename
 Needs abstracting for model
+Auto-slug
 
 == Admin forms
+Optional categorisation
 Term parents displaying the null option badly as '-1'
 Term element, Term parents - no verification term exists.
 
 Humm. Verification (for what?) not hard to add.
 
 Validate tree_id never chages for a term.
+
+== objects
+Unpublishing
 
 == API
 get() query

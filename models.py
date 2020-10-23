@@ -67,8 +67,8 @@ class Term(TermBase):
     )
       
         
-    #def get_absolute_url(self):
-    #    return reverse("term-detail", kwargs={"slug": self.slug})
+    def get_absolute_url(self):
+        return reverse("category_detail", kwargs={"slug": self.slug})
 
     api = None
 

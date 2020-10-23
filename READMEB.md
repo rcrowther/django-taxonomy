@@ -132,16 +132,126 @@ and in the template 'page_detail.html',
         </ul>
     </nav>
 
+## Attaching objects to Terms
+### Term recorded in object
+This is the way most people think about this. A Page has a category of 'Psychology'.
 
-### Whole tree rendering
+You'll need to add a field to your Model. Usually you would use a ForeignKey (unless your data can fall into many categories, use a ManyToManyField).
+
+    from taxonomy.models import Term
+
+    class MyModel(models.Model):
+        category = models.ForeignKey(
+            Term,
+            on_delete=models.CASCADE,
+        )
+
+You'll get the usual Django setup in Admin like this. If you have a lot of Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
+
+#### A list of siblings
+In the view context,
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['siblings'] = Page.objects.filter(category=self.get_object().category)
+        return ctx
+
+Then render 'siblings' somehow.
+
+
+### Notes
+I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I don't think category data should intrude on objects.
+
+Hoever, the nice way to say this, Django has no ability. The ORM, the model fields, the Admin, and the form-building all have no ability to organise the data otherwise. I've stuck with the above, which plays ok with Django. What I wold prefer is make an object--term table, and a form for it. But in Django, that requires hand-crafting model specifics, and cannot be part of the main app. 
+
+## URLs for Taxonomies
+Not all taxonomies will need URLs, but a taxonomy with URLs can make the base of a site. For example, a few CMS assume that pages on a site are organised as a tree.
+
+First, you need to decide how your URLs will look. Will they include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
+
+I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadgrumbs and category listings.
+
+### Declare a term model with a slug field
+So it can be used in URLs with a nice escaped URL 'name'.
+
+### Breadcrumbs
+In the view context, something like,
+
+    from taxonomy.models import Term
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['crumb_terms'] = Term.api(ctx['object'].category.id).ascendent_path()
+        return ctx
+
+Then render 'crumb_terms' somehow. If you would like anchors, and the Term model has a field 'slug', there is a templatetag,
+
+<nav>
+    {% breadcrumb crumb_terms %}
+</nav>
+
+which accepts optional args,
+
+    url_prefix
+        to go before the slug. default = '/category/'
+
+Of course, this is not much control over rendering, but maybe you dont need that. The tag above renders as,
+
+    <ul class="breadcrumb">
+        <li><a href="/category/term_1">term 1</a></li>
+        <li><a href="/category/term_2">term 2</a></li>
+        ...
+    </ul>
+
+
+### Category links
+Now the links need to go somewhere. All kinds of fancy pages nowadays, but classic web would be category links. Most sites add lists of attached objects. But if you have search enabled on your site, maybe you would want to got straight to that?
+
+The more traditional non-search goes something like this. The usual Django shennanigans. Add a link in your URLs file,
+
+    from taxonomy.views import CategoryDetailView
+
+    urlpatterns = [
+        path('category/<slug:slug>',  CategoryDetailView.as_view(), name='category_detail'), 
+    ]
+
+Then a DetailView. Note this isn't a ListView. Sure, we are listing things, but the basic idea here is 'something to do with a single category', not 'list categories',
+
+
+    from django.views.generic import DetailView
+    from taxonomy.models import Term
+    from article.models import Page
+
+
+    class CategoryDetailView(DetailView):
+        model = Term
+        context_object_name = 'category'
+        # You chould shovel in some breadcrumb data
+        ctx['crumb_terms'] = Term.api(ctx['object'].id).ascendent_path()
+        # ...or element data from this category (this could use a related query if you have set up like that)
+        ctx['elements'] = Page.objects.filter(category=ctx['object'])
+
+Then a reverse URL on the model,
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('category_detail', kwargs={'slug': self.slug})
+
+And a template, category_detail.py. That's entirely up to you.
+
+This will do not much at all. Maybe you could print the term title, to cheer yourself up? But it is a blank page to go crazy on; load with search bars, gadget images, manipulative headlines, entrapment buttons; you could see it that way,
+
+
+
+## Whole tree rendering
 It's not often you see a whole tree rendered. Think of those sitemap modules that are always written and never used. Still, you may have reason for printing the tree, and there are a few ways.
 
-#### Flat Trees
+### Flat Trees
 Trees that are made of term data plus a depth. As used in the selector boxes in admin.
 
 The tags and classes return HTML.
 
-##### Template tags
+#### Template tags
 There's a template tag that prints a depth tree in HTML. It uses a class FlatTreeRenderer but is easy to use, though operation is limited,
 
 Use a view to send a tree (the usual depth-Term type),
@@ -157,11 +267,11 @@ Render that data in a template with this tag,
         {% flat_tree %}
 
 
-##### FlatTreeRenderer
+#### FlatTreeRenderer
 The tag uses a class inlintemplates.FlatTreeRenderer, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
 
 
-#### Stacked Trees
+### Stacked Trees
 Trees that display terms on top of each other, extending downwards like roots on a plant. These displays use a lot of visual space. Only a small taxonomy can be displayed on a display.
 
 The classes and tags return SVG graphics.
@@ -179,7 +289,7 @@ Cons
 - They work with an absolute internal sizing. Font sizes are inherited, but no inheritance of CSS layout.
 
 
-##### Template tags
+#### Template tags
 There's a template tag that prints a tree in SVG. It uses StackTree but is easy to use, though operation is limited,
 
 Use a view to send a tree (the usual depth-Term type),
@@ -197,7 +307,7 @@ Then render that data with this tag,
 The two parameters define a ''box' size into which to write titles. As this is SVG, the text scales. To make text smaller, try make the sizes larger (which then get scaled down further. Sorry, not worked out my optimal solution for this, but it's fun).
 
 
-##### StackTreeRenderer
+#### StackTreeRenderer
 The tags use a class inline_templates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
 
     from django.utils.safestring import mark_safe
@@ -220,47 +330,6 @@ The tags use a class inline_templates.Stacktree, which is more flexible than the
     return render(request, 'article.html', {'article': article})
 
 
-## Attaching objects to Terms
-### Term recorded in object
-This is the way most people think about this. A Page has a category of 'Psychology'.
-
-You'll need to add a field to your Model. Usually you would use a ForeignKey (unless your data can fall into many categories, use a ManyToManyField).
-
-    from taxonomy.models import Term
-
-    class MyModel(models.Model):
-        category = models.ForeignKey(
-            Term,
-            on_delete=models.CASCADE,
-        )
-
-You'll get the usual Django setup in Admin like this. If you have a lot of Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
-
-#### A list of siblings
-In the view context,
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx['siblings'] = Article.objects.filter(category=self.get_object().category)
-        return ctx
-
-Then render 'siblings' somehow.
-
-
-### Notes
-I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I don't think category data should intrude on objects.
-
-Hoever, the nice way to say this, Django has no ability. The ORM, the model fields, the Admin, and the form-building all have no ability to organise the data otherwise. I've stuck with the above, which plays ok with Django. What I wold prefer is make an object--term table, and a form for it. But in Django, that requires hand-crafting model specifics, and cannot be part of the main app. 
-
-## URLs for Taxonomies
-Not all taxonomies will need URLs, but a taxonomy with URLs can make the base of a site. More and more, for example, CMS assume that visible pages on a site are organised as a tree.
-
-First, you need to decide how your URLs will look. Will they include a subject? There is advice [that they should not](https://www.w3.org/Provider/Style/URI). 
-
-
-
-
-
 ## Implementation notes
 There are a few ways to implement a tree. Here is our version.
 
@@ -280,5 +349,5 @@ etc.
 ### The evironment
 The Django system presents substancial difficulties to anyone implementing structures like this. The builtin admin may be customisable, but it's great blob of code is hard to extend. Then there is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Finally, though that would be unusual, Python has no support and there is no presentation logic. The only functionality on the coder's side is the model building, and hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
 
-### Straight vs. MPTT implementation
-Django-taxonomy uses direct links between its tree nodes. This is fundamentally different to an MPTT structure, which links tree nodes as a list. It's something like the difference between an array and a linked list. They both present the same structure, maybe a similar API, but the underlying implementation is different. There are advantages to both. An MPTT structure is excellent at gathering data from multiple categories, say 'cars', and all sub-categories. It is also capable of ordering it's categories and references exactly. Whereas the straight structure is so poor at this I have not implemented either functionality. But the straight structure is simple to create and maintain, and is good at displaying the categories themselves.
+### Straight vs. MPTT etc. implementation
+Django-taxonomy uses direct links between its tree nodes. This is fundamentally different to an MPTT structure, which links tree nodes as a list, or a path structure. It's something like the difference between an array and a linked list. They both present a similar API, but the underlying implementation is different. There are advantages to both. An MPTT structure is excellent at gathering data from multiple categories, say 'cars', and all sub-categories. It is also capable of ordering it's categories and references exactly. Whereas the straight structure is poor at this, and I have not implemented either functionality. But the straight structure is simple to create and maintain, and good at displaying the categories themselves.

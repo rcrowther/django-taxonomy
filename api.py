@@ -132,20 +132,20 @@ class TermMethods:
         '''
         Tree ascscendants
         return
-            [DepthTid, ....], ordered from start term to root.
+            [DepthTid, ....], ordered from root to target term.
         '''
         pos = self.cache.tree_locations().get(self.id)
         tree = self.cache.ftree()
         e = tree[pos]
         b = [e]       
         base_depth = e.depth - 1      
-        while (base_depth > 0):
+        while (base_depth > -1):
             pos -= 1  
             e = tree[pos]
             if (base_depth >= e.depth):
                 b.append(e)
                 base_depth -= 1
-        #b.reverse()
+        b.reverse()
         return b
 
     def depth_id_descendant_paths(self):
@@ -189,7 +189,7 @@ class TermMethods:
     def ascendent_path(self):
         '''
         Path of Terms 
-            [Term, ....], ordered from start term to root.
+            [Term, ....], ordered from root to target term.
         '''
         term_map = self.cache.term_map()
         path = self.depth_id_ascendent_path()
