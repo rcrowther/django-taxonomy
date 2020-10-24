@@ -45,13 +45,11 @@ class TermMethods:
     def __init__(self, 
         model_term, 
         model_termparent, 
-        #model_termelement,
         cache, 
         term_id
     ):
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        #self.model_termelement = model_termelement 
         self.cache = cache
         self.id = term_id
 
@@ -214,19 +212,15 @@ class TermMethods:
         e = tree[pos]
         base_depth = e.depth
         max_depth = max_depth if max_depth else BIG_DEPTH
-        #rel_max_depth = max_depth + base_depth
-        #b = [e]
         b = [DepthTid(0, e.tid)]
         pos += 1        
         while (pos < l):
             e = tree[pos]
             reldepth = e.depth - base_depth
             if (reldepth < 1):
-            #if (e.depth <= base_depth):
                 # i.e. if not a descendant of the given tid
                 break
             if (reldepth < max_depth):
-            #if (e.depth < rel_max_depth):
                 b.append(DepthTid(reldepth, e.tid)) 
             pos += 1        
         return b      
@@ -249,10 +243,8 @@ class TermMethods:
         attached elements.
         ''' 
         descendant_tids = self.id_descendants()
-        # Term is not in the descendants
+        # because base Term is not in the descendants
         descendant_tids.append(self.id)
-        #if (self.model_termelement):
-        #    self.model_termelement.objects.filter(tid__in=descendant_tids).delete()
         self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
         self.model_term.objects.filter(id__in=descendant_tids).delete()
         self.cache.clear()
@@ -267,7 +259,6 @@ class TermMethods:
         print('API reparent_choices')
         #? This feels like a shambles. but the slick thing would be
         # tree ids no descendants?
-        #! not generating tree?
         descendants = self.id_descendants()
         # add in the seed term_id. Don't want to parent on ourself
         descendants.append(self.id)
@@ -275,18 +266,7 @@ class TermMethods:
         non_descendant_id_tree = (e for e in self.cache.ftree() if (not(e.tid in descendants)))
         term_map = self.cache.term_map()
         return list(ChoiceIterator([DepthTerm(e.depth, term_map[e.tid]) for e in non_descendant_id_tree]))
-        #return list(ChoiceIterator(self.taxonomy_id, (e for e in self.api.tree() if (not(e.term.id in descendants)))))
-    #?
-    # def element_save(self, element_id):
-        # if (not self.model_termelement):
-            # raise NoTermElementTable()
-        # obj = self.model_termelement(tid=self.id, eid=element_id)
-        # self.model_termelement,save(obj)
 
-    # def element_delete(self, element_id):
-        # if (not self.model_termelement):
-            # raise NoTermElementTable()
-        # self.model_termelement,get(eid=element_id).delete()
         
         
         
@@ -297,11 +277,9 @@ class TaxonomyAPI:
     def __init__(self, 
         model_term, 
         model_termparent, 
-        #model_termelement, 
     ):
         self.model_term = model_term 
         self.model_termparent = model_termparent 
-        #self.model_termelement = model_termelement 
     
         # cache
         self._parents = {}
@@ -309,10 +287,6 @@ class TaxonomyAPI:
         self._terms = {}
         self._ftree = None
         self._tree_locations = None
-
-    # def contribute_to_class(self, model, name):
-        # self.model_taxonomy = model
-        # setattr(model, name, self)
 
     def generate_base_data(self):
         from django.db import connection
@@ -323,13 +297,9 @@ class TaxonomyAPI:
             self.model_termparent._meta.db_table,
             self.model_term._meta.db_table,
             )
-        #print('PID_Weighted_SQL')
-        #print(PID_Weighted_SQL)
         with connection.cursor() as cursor:
             cursor.execute(PID_Weighted_SQL)
             for r in cursor.fetchall():
-                # 1, 1, 0, 'term 1', 'term_1', 'term 1',
-                print(str(r))
                 tid = r[0]
                 terms[tid] = self.model_term(*r[:-1])
                 parents[tid] = r[-1]
@@ -343,21 +313,6 @@ class TaxonomyAPI:
         self._terms = terms
         self._parents = parents
         self._children = children
-        
-    # def generate_base_data(self, taxonomy_id):
-        # terms = {term.id : term for term in self.model_term.objects.filter(taxonomy_id=taxonomy_id)}
-        # tids = terms.keys()
-        # parents = {tp.tid : tp.pid for tp in self.model_termparent.objects.filter(tid__in=tids)}
-        # # An inversion of parents removes leaves (no children). Want to 
-        # # account for all tids, so prebuild from Terms instead
-        # children = {tid : [] for tid in terms.keys()} 
-        # # and ensure NO_PARENTS entry
-        # children[NO_PARENT] = []
-        # for (tid, pid) in parents.items():
-            # children[pid].append(tid)
-        # self._terms[taxonomy_id] = terms
-        # self._parents[taxonomy_id] = parents
-        # self._children[taxonomy_id] = children
 
     #NB self.children will always have a NO_PARENT entry unless cleared.
     def child_map(self):
@@ -435,7 +390,6 @@ class TaxonomyAPI:
         return TermMethods( 
             self.model_term, 
             self.model_termparent, 
-            #self.model_termelement,
             self, 
             term_id
         )
@@ -457,12 +411,9 @@ class TaxonomyAPI:
 
     def delete(self):
         '''
-        Delete the tree and contents.
-        Including the Taxonomy object. Also terms, parentage, and attached 
-        elements.
+        Delete the tree.
+        Includes terms, and parentage.
         '''
-        #if (self.model_termelement):
-        #    self.model_termelement.objects.all().delete()
         self.model_termparent.objects.all().delete()
         self.model_term.objects.all().delete()
         self.clear(self.id)
@@ -481,12 +432,6 @@ class TaxonomyAPI:
         '''
         term_map = self.term_map()
         return [DepthTerm(e.depth, term_map[e.tid]) for e in self.depth_id_tree(max_depth)]
-
-    # def element_term_id(self, element_id):
-        # if (not self.model_termelement):
-            # raise NoTermElementTable()
-        # obj = self.model_termelement.objects.get(eid=element_id)
-        # return obj.tid
                 
     def initial_choices(self):
         '''

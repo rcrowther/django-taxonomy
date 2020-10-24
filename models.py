@@ -1,13 +1,21 @@
 from django.db import models
 from django.urls import reverse
-from django.db import connection
 from taxonomy.api import TaxonomyAPI
-from django.db.models import signals
+from django.core import checks
 
 
 
 class TermBase(models.Model):
-    
+
+    # A name field is required, or it creates some admin difficulties.
+    # Not unique. The id is unique.
+    name = models.CharField(
+        max_length=255,
+        blank=False,
+        db_index=True,
+        help_text="Name for the category. Limited to 255 characters.",
+    )
+        
     weight = models.PositiveSmallIntegerField(
         blank=True,
         default=0,
@@ -15,11 +23,9 @@ class TermBase(models.Model):
         help_text="Priority for display of several categories Lower value orders first. 0 to 32767.",
     )
 
-    def delete(self, using=None, keep_parents=False):
-        # api usually does this. Should the method be called manually, 
-        # api does it.
-        self.api(self.id).delete()
-
+    # Note that API usualls does CRUD actions. Admin calls api. So we
+    # leave the model to do it's usual actions, in case users need those
+    # for mainenance.
         
     def __repr__(self):
         return "Term(id:{}, name:{}, weight:{})".format(
@@ -30,8 +36,32 @@ class TermBase(models.Model):
           
     def __str__(self):
         return "{}".format(
-            self.id, 
+            self.name, 
         )
+
+    @classmethod
+    def check(cls, **kwargs):
+        errors = super().check(**kwargs)
+        if not cls._meta.swapped:
+            if (cls.api is None):
+                errors.append(
+                    checks.Error(
+                        "'{}' class must have an attribute 'api' declared.".format(
+                            cls.__name__,
+                        ),
+                        id='T001',
+                    )
+                )
+            if (not(isinstance(cls.api, TaxonomyAPI))):
+                errors.append(
+                    checks.Error(
+                        "'{}' attribute 'api' must be a subclass of TaxonomyAPI.".format(
+                            cls.__name__,
+                        ),
+                        id='T002',
+                    )
+                )
+        return errors
         
     class Meta:
         abstract = True
@@ -39,23 +69,14 @@ class TermBase(models.Model):
         
         
 class Term(TermBase):
-    
-    # Not unique. All terms in same table, different taxonomies.
-    name = models.CharField(
-        max_length=255,
-        blank=True,
-        default='',
-        db_index=True,
-        help_text="Name for the category. Limited to 255 characters.",
-    )
-      
+
     # Not unique. Terms may be in different taxonomies. They may
     # be duplicated at different places in a hierarchy e.g. 'sports>news'
     # 'local>news'.
     slug = models.SlugField(
         max_length=64,
-        blank=True,
-        default='',
+        #blank=True,
+        #default='',
         help_text="Short name for use in urls.",
     )
   
@@ -66,7 +87,6 @@ class Term(TermBase):
         help_text="Description of the category. Limited to 255 characters.",
     )
       
-        
     def get_absolute_url(self):
         return reverse("category_detail", kwargs={"slug": self.slug})
 
@@ -78,16 +98,11 @@ class Term(TermBase):
             self.name,
             self.slug,
             self.weight,
-        )  
-          
-    def __str__(self):
-        return "{}".format(
-            self.name if self.name else self.id, 
-        )
+        ) 
 
 
-                
-class TermParent(models.Model):
+# Subclasses are unalatered, but a new one needed for every taxonomy.                
+class TermParentBase(models.Model):
     '''
     Parent terms to other terms
     '''
@@ -130,8 +145,16 @@ class TermParent(models.Model):
             self.pid if self.pid != TermParent.NO_PARENT else 'NO_PARENT', 
         )
 
-        
-        
+    class Meta:
+        abstract = True
+
+
+
+class TermParent(TermParentBase):
+        pass
+                
+
+# Always this format, but a new one needed for every taxonomy.
 Term.api = TaxonomyAPI(
             Term, 
             TermParent, 

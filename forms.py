@@ -1,16 +1,16 @@
 from django import forms
-from taxonomy.models import Term, TermParent
-from django.utils.datastructures import MultiValueDict
-from django.forms.widgets import HiddenInput
-from django.forms.models import ModelFormMetaclass
-from django.http.request import QueryDict
+from taxonomy.models import TermParentBase
+#from django.utils.datastructures import MultiValueDict
+#from django.forms.widgets import HiddenInput
+#from django.forms.models import ModelFormMetaclass
+#from django.http.request import QueryDict
 #from taxonomy.taxonomy import TaxonomyAPI
 
 
 #N These may be small forms, but full of tricks, and so annotated.
 #N https://docs.djangoproject.com/en/3.1/topics/forms/modelforms/
 #N https://medium.com/@hakibenita/how-to-add-custom-action-buttons-to-django-admin-8d266f5b0d41
-class TermForm(forms.ModelForm):
+class TermFormPartial(forms.ModelForm):
     '''
     Handle single parenting. 
     '''    
@@ -47,11 +47,14 @@ class TermForm(forms.ModelForm):
             # setup parent choices
             self.declared_fields['parent'].choices = self._meta.model.api.initial_choices()
             # ...then 'select' current parent
-            kwargs['initial']['parent'] = TermParent.NO_PARENT
+            kwargs['initial']['parent'] = TermParentBase.NO_PARENT
 
         super().__init__(*args, **kwargs)
         
         
-    class Meta:
-        model = Term
-        exclude = []
+    #class Meta:
+        #model = Term
+        #exclude = []
+    #    pass
+
+        

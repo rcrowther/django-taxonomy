@@ -27,20 +27,90 @@ Con
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT structure. Or maybe Treebeard's PathTree implementation. This is not that app.
 
 This app has only one (non)feature over the heavyweights here. It is simple. 
-It has only 800 (or near) lines of code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. 
-So if you don't need the weight, but want to gather pages on a website, you may prefer this.
+It has no dependencies. It has only 800 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
 
 ## Overview
 ![overview diagram](screenshots/overview.svg?raw=true&sanitize=true)
 
-Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every model becomes a tree of terms. To any term you can optionally attach elements. An element is a number, and would usually be a model id.
+Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every subclass of TermBase becomes a tree of terms. An element is any Django object/Model which joins to a Term. The join is usually through a Foreign key.
 
 
 ## If you have done this before
 
 ## Install
 
+## Creating a Taxonomy
+Usually, one taxonomy would be associated with one model. Otherwise, if elements come from mpore than one model, you will run into difficulties identifying which model is returned from categories. Not an impossible situation, but these instructions will not cover that possibility further.
+
+Because of this, taxonomies would usually be created in the model to be associated with or, possibly, as a freestanding app.
+
+To include multiple models in one taxonomy, you could use a base model. This would include an id field???
+
+An example of a declaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
+        
+    class Category(TermBase):
+
+        # Not unique. Terms may be in different taxonomies. They may
+        # be duplicated at different places in a hierarchy e.g. 'sports>news'
+        # 'local>news'.
+        slug = models.SlugField(
+            max_length=64,
+            help_text="Short name for use in urls.",
+        )
+      
+        description = models.CharField(
+            max_length=255,
+            blank=True,
+            default='',
+            help_text="Description of the category. Limited to 255 characters.",
+        )
+          
+        def get_absolute_url(self):
+            return reverse("category_detail", kwargs={"slug": self.slug})
+
+        api = None
+
+        def __repr__(self):
+            return "Term(id:{}, name:{}, slug:{}, weight:{})".format(
+                self.id,
+                self.name,
+                self.slug,
+                self.weight,
+            ) 
+
+
+
+    # Always the same, but a new one needed for every taxonomy.
+    class CategoryParent(TermParentBase):
+            pass
+                    
+
+    # Always this format, but a new one needed for every taxonomy.
+    Category.api = TaxonomyAPI(
+                Category, 
+                CategoryParent, 
+             ) 
+
+Then migrate.
+
+
 ## Admin
+You need a special admin from taxonomy.admins. As usual, the admin needs a 'fields' attribute. One comment here, if you do not have a 'fields' statement, the 'parent' field is placed at the bottom of the form. Almost certainally, this is not what you want. Also, you do want the 'parent' field to show in most cases, so put 'parent' in the 'fields' list. 
+
+You can customise as usual. Here I've added a 'prepopulate' attribute for the slug field in the example above,
+
+    from django.contrib import admin
+    from taxonomy.models import Category
+    from taxonomy import admins
+
+
+
+    class CategoryAdmin(admins.TermAdmin):
+        fields = ('parent', 'name', 'slug', 'description', 'weight')
+        prepopulated_fields = {"slug": ("name",)}
+    admin.site.register(Term, TermAdmin)
+
+[image]
 
 ## The API
 As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation). 

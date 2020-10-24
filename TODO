@@ -5,10 +5,11 @@ Is it possible to inline template attributes? We want attributes.
 Change to name 'category'
 Check subclassing
 
-== Admin list
-indent title column rename
+== Admin
+x indent title column rename
 Needs abstracting for model
 Auto-slug
+Want the tree as tree (or root), or upend the visual prefix?
 
 == Admin forms
 Optional categorisation
@@ -23,7 +24,6 @@ Validate tree_id never chages for a term.
 Unpublishing
 
 == API
-get() query
 deletes to be enabled
 Reparent_choices is a mess
 
@@ -34,6 +34,9 @@ Why are dispalys sometimes hanging?
 Can make relative sizing?
 
 == Models
-Abstract models
+x Abstract models
 Get rid of slugs, they're for abstraction
-Reverse lookupsb
+Reverse lookups
+
+== Other
+Auto-slug code
