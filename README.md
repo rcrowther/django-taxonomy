@@ -18,7 +18,7 @@ This app is called 'django-taxonomy', but internally the module is called 'taxon
 Pro
 - It's simple
 - Terms are subclassed and can be customiised
-- It's got displays and effective Admin builtin 
+- It's got displays and Admin builtin 
 
 Con
 - No multiparent (node map) option
@@ -27,10 +27,9 @@ Con
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
 This app has only one (non)feature over the heavyweights here. It is simple. 
-It has no dependencies. It has only 800 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
+It has no dependencies. It has only 300 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
 
 ## Overview
-![overview diagram](screenshots/overview.svg?raw=true&sanitize=true)
 
 Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every subclass of TermBase becomes a tree of terms. 
 
@@ -40,8 +39,30 @@ An element is any Django object/Model which joins to a Term. The join is usually
 
 
 ## If you have done this before
+- Install
+- Declare a taxonomy
+- [Add an Admin](#Admin)
+
+I think that's all. Don't forget you use the [API](#the-api) to access the taxonomy, and you need a foreign key to [add ojects to it](#attaching-objects).
+
 
 ## Install
+PyPi,
+
+    pip install django-taxonomy
+
+Or download the app code to Django.
+
+Declare in Django settings,
+
+        INSTALLED_APPS = [
+            ...
+            'taxonomy.apps.TaxonomyConfig',
+            ...
+        ]
+
+Ther are migrations, but not for the app. That comes after you have declared a tree. See next section.
+
 
 ## Creating a Taxonomy
 Often, a taxonomy is associated with one model/object. In which case, you can create the taxonomy in the model for the app. If you use [Multiple Models](#multiple-models) it may be better to create the taxonomy in a freestanding app.
@@ -112,11 +133,15 @@ You can customise as usual. Here I've added a 'prepopulate' attribute for the sl
         prepopulated_fields = {"slug": ("name",)}
     admin.site.register(Term, CategoryAdmin)
 
-[image]
+There we are,
+
+![Admin](screenshots/admin.png)
 
 
 ## The API
-As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation). 
+As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation). Here are the children of some root, with some CSS,
+
+![some children](screenshots/taxonomy_children_adjusted.png)
 
 The api hangs off any object based on TermBase, and can also be accessed from any TermBase class. Using the model created above, Category,
 
@@ -265,7 +290,13 @@ There are a lot of options which are nothing to do with this app, they are conce
 Let's say...
 
 ### Breadcrumbs
-You have a model linked to a taxonomy. Stock Django. Add some taxonomy data to the model View, 
+You have a model linked to a taxonomy. 
+
+ 
+![breadreumbs](screenshots/breadcrumb.png)
+With some CSS work.
+
+Stock Django. Add some taxonomy data to the model View, 
 
     from django.views.generic import ListView, DetailView
     from article.models import Page
@@ -315,7 +346,7 @@ The templatetag has not much control over rendering, but maybe you dont need tha
         ...
     </ul>
 
-Unless you've built some taxxonomy Views, these links don't point at anything. But it looks like a start, right? You could drop the links and make a simple visual display. Or follow the next section.
+Unless you've built some taxonomy Views, these links don't point at anything. But it looks like a start, right? You could drop the links and make a simple visual display. Or follow the next section.
  
 
 ## URLs for Taxonomies 
@@ -444,11 +475,12 @@ The tag uses a class inlintemplates.FlatTreeRenderer, which is more flexible tha
 
 
 ### Stacked Trees
-Trees that display terms on top of each other, extending downwards like roots on a plant. These displays use a lot of visual space. Only a small taxonomy can be displayed on a display.
+Trees that display terms on top of each other, extending downwards like roots on a plant.
 
-The classes and tags return SVG graphics.
 
-SVG graphics have advantages and disadvanatages.
+![Stacked Tree](screenshots/stack_tree.png)
+
+These displays use a lot of visual space. Only a small taxonomy can be displayed on a display. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvanatages,
 
 Pros
 - They are part of the webpage, so can be manipulated and searched like HTML
