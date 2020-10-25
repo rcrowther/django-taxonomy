@@ -1,0 +1,45 @@
+== templates
+Is it possible to inline template attributes? We want attributes.
+Generalise breadcrumbs to term_list, term_anchor_list
+
+== Models
+x Abstract models
+x Subclassing not complete
+Change to name 'category'
+Check subclassing
+killing related managers
+
+
+== API
+x deletes to be enabled
+Reparent_choices is a mess
+
+== Admin
+x indent title column rename
+x invert chars
+x Needs abstracting for model
+Auto-slug
+
+== Admin forms
+Optional categorisation
+Term parents displaying the null option badly as '-1'
+Term element, Term parents - no verification term exists.
+
+Humm. Verification (for what?) not hard to add.
+
+
+== objects
+Unpublishing
+
+== Rendering
+Why are displays sometimes hanging?
+
+== SVGs
+Can make relative sizing?
+
+== Tests
+!!!
+
+== Other
+Auto-slug code
+Do builtins work in packaging?

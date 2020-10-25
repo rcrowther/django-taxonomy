@@ -35,7 +35,7 @@ Taxonomy has a model 'TermBase', which you can extend with whatever data you wan
 
 The base is called 'Term' because, well, that's the name (sometimes people use 'Node'). It's not really a Category because the full structure, a Taxonomy, is a tree of Terms, not a freestanding or otherwise organised set of Categories. To vaoid puzzling end users, I suggest you call all public facing display a 'Category'
 
-An element is any Django object/Model which joins to a Term. The join is usually through a Foreign key.
+An element is any Django object/Model attached to a Term. The join is usually through a Foreign key.
 
 
 ## If you have done this before
@@ -116,7 +116,7 @@ Then migrate.
 
 
 ## Admin
-You need a special admin from 'taxonomy.admins'. The admin adds a 'parent' field to Term creation and update, and routes CRUD operations through the API.
+You need a special admin found in 'taxonomy.admins'. The admin adds a 'parent' field to Term operations, and routes CRUD operations through the API.
 
 As usual, the admin needs a 'fields' attribute. One comment here, if you do not have a 'fields' statement, the 'parent' field is placed at the bottom of the form. Almost certainally, this is not what you want. Also, you will want the 'parent' field to show in most cases, so put 'parent' in the 'fields' list. 
 
@@ -276,11 +276,7 @@ Second, if you use Djangos related managers, multiple models will create multipl
 
 
 ### Notes
-I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. However, [Django has no ability]().
-
-I don't think category data should intrude on objects.
-
-However, the nice way to say this, Django has no ability. The ORM, model fields, Admin, and the form-building all have no ability to organise the data otherwise. I've stuck with the above, which plays ok with Django. What I wold prefer, or at least offer as an alternative, is an object--term table, and a form for it. But in Django, that requires hand-crafting model specifics, and cannot be part of the main app. 
+I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I don't think category data should intrude on objects. However, [Django has no ability](#the-evironment).
 
 
 
@@ -291,9 +287,9 @@ Let's say...
 
 ### Breadcrumbs
 You have a model linked to a taxonomy. 
-
  
 ![breadreumbs](screenshots/breadcrumb.png)
+
 With some CSS work.
 
 Stock Django. Add some taxonomy data to the model View, 
@@ -551,7 +547,8 @@ etc.
 
 ## EndNote
 ### The evironment
-The Django system presents substancial difficulties to anyone implementing structures like this. The builtin admin may be customisable, but it's great blob of code is hard to extend. Then there is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Finally, though that would be unusual, Python has no support and there is no presentation logic. The only functionality on the coder's side is Django's model building, and hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
+The Django system presents substancial difficulties to anyone implementing structures like this. There is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Form-building seems flexible, but you can't pin partials together, nor integrate with Admin. And admin may be customisable, but it's a blob of code and can not be extended. The only functionality on the coder's side is Django's model building, and Python hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
+
 
 ### Straight vs. MPTT etc. implementation
 Django-taxonomy uses direct links between its tree nodes. This is fundamentally different to an MPTT structure, which links tree nodes as a list, or a path structure. It's something like the difference between an array and a linked list. They both present a similar API, but the underlying implementation is different. There are advantages to both. An MPTT structure is excellent at gathering data from multiple categories, say 'cars' and all sub-categories. It is also capable of ordering it's categories and references exactly. Whereas the straight structure is poor at this, and I have not implemented either functionality. But the straight structure is simple to create and maintain, and good at displaying the categories themselves.
