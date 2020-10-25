@@ -84,39 +84,47 @@ def to_kwargs(token, kwlumps):
            
     return kwargs
 
-from django.utils import html
 
-class BreadcrumbNode(template.Node):
-    def __init__(self, crumb_terms, url_stub):
-        self.crumb_terms = template.Variable(crumb_terms)
+
+from django.utils import html
+from django.forms.utils import flatatt
+
+class TermAnchorNode(template.Node):
+    #! not threadsafe
+    def __init__(self, term_list, url_id_field, url_stub, kwargs):
+        self.term_list = template.Variable(term_list)
+        self.url_id_field = url_id_field
         self.url_stub = url_stub
-        
+        self.kwargs = kwargs
+
     def render(self, context):
-        b = ['<ul class="breadcrumb">']
-        for e in self.crumb_terms.resolve(context):
+        b = ['<ul {} />'.format(flatatt(self.kwargs))]
+        for e in self.term_list.resolve(context):
             b.append('<li>')
             b.append('<a href="{0}{1}">{2}</a>'.format(
                 self.url_stub,
                 #? probably not escape, but something else to protect URLs
-                e.slug,
+                getattr(e, self.url_id_field),
                 html.escape(e.name),
                 )
             )
             b.append('</li>')
         b.append('</ul>')
-        #raise Exception
         return mark_safe(''.join(b))
 
 @register.tag        
-def breadcrumb(parser, token):
+def term_anchors(parser, token):
     '''
-    Make a breadcrumb from a list of data (presumably Terms).
+    Make anchors from a list of data (presumably Terms).
     Looks for a 'slug' and 'name' field
-    
+    Undocumented keyword arguments are rendered as HTML attributes.
+
     url_prefix
-        prefix to go before the slug in the anchor URL e.g. url_prefix =
+        Prefix to go before the slug in the anchor URL e.g. url_prefix =
         'dvds', rende as href = '/dvds/fred_astaire' 
-        default = '/category/'
+        Default '/category/'
+    url_id_field
+        Fieldname for id data for the URL. Default 'slug'
     '''
     lumps = token.split_contents()
     if(len(lumps) < 2):
@@ -125,9 +133,10 @@ def breadcrumb(parser, token):
                 token.contents,
             ))
     tag_name = lumps[0]
-    crumb_terms = lumps[1]
+    term_list = lumps[1]
     kwargs = to_kwargs(token, lumps[2:])
     print('template')
     print(str(kwargs))
-    url_prefix = kwargs.get('url_prefix') or '/category/'
-    return BreadcrumbNode(crumb_terms, url_prefix)
+    url_prefix = kwargs.pop('url_prefix', None) or '/category/'
+    url_id_field = kwargs.pop('url_id_field', None) or 'slug'
+    return TermAnchorNode(term_list, url_id_field, url_prefix, kwargs)

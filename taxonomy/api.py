@@ -114,7 +114,7 @@ class TermMethods:
     def id_descendants(self):
         '''
         Term descendants
-        The return is disorganised and does not structure for descendant
+        The return is disorganised and does not structure for
         paths.
         Does not include the original id.
         return
@@ -129,6 +129,22 @@ class TermMethods:
             stack.extend(list.copy(child_map[tid]))
         return b
 
+    def ascendants(self):
+        '''
+        Disorganised collection of all ascendants.
+        '''
+        term_map = self.cache.term_map()
+        ascendants = self.id_ascendants()
+        return [ term_map[tid] for tid in ascendants ]
+        
+    def descendants(self):
+        '''
+        Disorganised collection of all descendants.
+        '''
+        term_map = self.cache.term_map()
+        descendants = self.id_descendants()
+        return [ term_map[tid] for tid in descendants ]
+        
     def depth_id_ascendent_path(self):
         '''
         Tree ascscendants
@@ -201,6 +217,7 @@ class TermMethods:
         paths = self.depth_id_descendant_paths()
         return [ [term_map[e.tid] for e in path] for path in paths]
 
+        
     def depth_id_tree(self, max_depth=None):
         '''
         Tree of depths and term ids.

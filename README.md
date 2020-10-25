@@ -23,6 +23,7 @@ Pro
 Con
 - No multiparent (node map) option
 - Poor at finding descendant Term elements, so poor the functionality has not been implemented
+- There's pages of README for 300 lines
 
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
@@ -65,10 +66,18 @@ Ther are migrations, but not for the app. That comes after you have declared a t
 
 
 ## Creating a Taxonomy
-Often, a taxonomy is associated with one model/object. In which case, you can create the taxonomy in the model for the app. If you use [Multiple Models](#multiple-models) it may be better to create the taxonomy in a freestanding app.
+Often, a taxonomy is associated with one model/object. In which case, you can create the taxonomy in the model for the app. If you use [Multiple Models](#multiple-models) it may be better to create the taxonomy in a freestanding app e.g.
 
-Either way, here is an example of a declaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
+    /manage.py startapp categories
+
+and install. Either way, here is an example of a modeldeclaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
         
+    from django.db import models
+    from taxonomy.models import TermBase, TermParentBase
+    from taxonomy.api import TaxonomyAPI
+
+
+
     class Category(TermBase):
 
         # Not unique. Terms may be in different taxonomies. They may
@@ -123,7 +132,7 @@ As usual, the admin needs a 'fields' attribute. One comment here, if you do not 
 You can customise as usual. Here I've added a 'prepopulate' attribute for the slug field added to the Category Term in the example above,
 
     from django.contrib import admin
-    from taxonomy.models import Category
+    from ???.models import Category
     from taxonomy import admins
 
 
@@ -131,7 +140,7 @@ You can customise as usual. Here I've added a 'prepopulate' attribute for the sl
     class CategoryAdmin(admins.TermAdmin):
         fields = ('parent', 'name', 'slug', 'description', 'weight')
         prepopulated_fields = {"slug": ("name",)}
-    admin.site.register(Term, CategoryAdmin)
+    admin.site.register(Category, CategoryAdmin)
 
 There we are,
 
@@ -139,9 +148,7 @@ There we are,
 
 
 ## The API
-As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation). Here are the children of some root, with some CSS,
-
-![some children](screenshots/taxonomy_children_adjusted.png)
+As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation).
 
 The api hangs off any object based on TermBase, and can also be accessed from any TermBase class. Using the model created above, Category,
 
@@ -222,6 +229,14 @@ This is the kind of data the app uses to render the select boxes in Admin.
 
 One point worth knowing is that, since these taxonomies are single-parent, there can be only one path back to the taxonomy root. But there can be several paths towards leaves. Ask for descendant_paths() and you will get a list of lists.
 
+### Accessing taxonomy data
+You can use the API in the shell, but also jamb it fairly statically into a webpage. For example, here are the objects attached to a base category, 
+
+            ctx['root_elements'] = Page.objects.filter(category=1)
+
+pushed into a navbar with some CSS,
+
+![some children](screenshots/taxonomy_children_adjusted.png)
 
 
 ## Attaching objects
@@ -230,40 +245,55 @@ This is the way most people think about this. A Page has a category of 'Psycholo
 
 You'll need to add a field to your Model. Usually you would use a ForeignKey (unless your data can fall into many categories. In that case, use a ManyToManyField).
 
-    from taxonomy.models import Category
+    ...
+    from ???.models import Category
 
     class MyModel(models.Model):
         category = models.ForeignKey(
             Category,
             on_delete=models.CASCADE,
+            related_name='+',
         )
 
-It's possible you may want to leave an object without a parent (that may possibly mean 'unpublished'). To do that, enable a default on the field,
+CASCADE means if the Term is deleted, the element is deleted also. One day this will be an important decision. Use SET_NULL or SET_DEFAULT if you generally want to keep material even if the taxonomy is changed or discarded. 
 
-    class MyModel(models.Model):
+Also (related_name selects are switched off)[https://docs.djangoproject.com/en/3.1/ref/models/fields/#django.db.models.ForeignKey.related_name]. Related name selects will let you see a term and find the objects attached to it. But I'll be ok searching MyModel for elements in a category. Your choice.
+
+It's possible you may want to leave an object without a parent. That could mean 'unpublished', or mean 'dont destroy with the category'. To do that, enable null or a default on the field,
+
+    from taxonomy import UNPARENTED
+
+    class Page(models.Model):
         category = models.ForeignKey(
             Category,
             blank=True,
-            default=TermBase.UNPARENTED,
-            on_delete=models.CASCADE,
+            default=UNPARENTED,
+            on_delete=models.SET_DEFAULT,
         )
 
-I'm not fond of null in DB's, but you could use that if you want.
+UNPARENTED is a sentinel value from the app. I'm not fond of null in DB's, but you could use that if you want.
 
-You'll get the usual Django display in Admin, a modelselector, which is ok. If you have many Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
+This model will deliver the usual Django display in Admin, a ModelChoiceField, which is ok. If you have many Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
 
-
-#### A list of siblings
-In a DetailView context,
+### Taxonomy in an attached object view
+Let's say this object is set up, and has a DetailView. There's much taxonomy detail you can use to extend the functionality of the page. This is discussed in more detail in (rendering)[#rendering], but this is how to get the data,
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-         ctx['siblings'] = []
+
         if self.object:
-            ctx['siblings'] = self.model.objects.filter(category=self.object.category)
+            category = self.object.category
+            # get the path to root
+            ctx['crumb_terms'] = category.api(category.id).ascendent_path()
+            # child terms
+            ctx['child_categories'] = category.api(category.id).children()
+            # disorganised collection of descendant terms
+            ctx['descendant_categories'] = category.api(category.id).descendants()
+            # get sibling objects (in the same category)
+            ctx['siblings'] = self.model.objects.filter(category=category)
         return ctx
 
-Then render 'siblings' somehow.
+Then render.
 
 
 ### Multiple models
@@ -271,12 +301,11 @@ If you follow this method for attaching-objects then different models can be att
 
 This can get messy in a few ways. First, you'll need to think about how to handle objects returned from terms, because they may be from different models. Perhaps a base model will help, so you can guarentee consistent handling? 
 
-Second, if you use Djangos related managers, multiple models will create multiple related managers. Every different model you add to a taxonomy will add a new manager until each Term has a list like 'info_page_set', 'article_set', 'code_article_set', and more. There's two basic approaches. Either accept that there will be a lot of managers, and try to be consistent. Or turn off related lookups. If you need a list of elements, search the original models. Either way, you need to think if you are searching for elements of one type attached to a term (easy), or elements of any type (needs organisation).
-
+Second, if you use Djangos related managers, multiple models will create multiple related managers. Every different model you add to a taxonomy will add a new manager until each Term has a list like 'info_page_set', 'article_set', 'code_article_set', and more. There's two basic approaches. Either accept that there will be a lot of managers, and try to be consistent. Or turn off related lookups. In that case, if you need a list of elements, search the original models. Either way, you need to think if you are searching for elements of one type attached to a term (easy), or elements of any type (needs organisation).
 
 
 ### Notes
-I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I don't think category data should intrude on objects. However, [Django has no ability](#the-evironment).
+I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I'd prefer category data did not intrude on objects. However, [Django has no ability](#the-evironment).
 
 
 
@@ -285,7 +314,7 @@ There are a lot of options which are nothing to do with this app, they are conce
 
 Let's say...
 
-### Breadcrumbs
+### Breadcrumbs, plain display
 You have a model linked to a taxonomy. 
  
 ![breadreumbs](screenshots/breadcrumb.png)
@@ -304,7 +333,7 @@ Stock Django. Add some taxonomy data to the model View,
         def get_context_data(self, **kwargs):
             ctx = super().get_context_data(**kwargs)
             if self.object:
-                # cranky, but no Taxonomy import
+                # cranky, but avoids Taxonomy import
                 category = self.object.category
                 ctx['crumb_terms'] = category.api(category.id).ascendent_path()
             return ctx
@@ -316,23 +345,48 @@ Then, in the template 'page_detail.html', render 'crumb_terms'. Can do that expl
         <ul>
             {% for term in breadcrumb %}
             <li class="menu-item">
-                <a href="/category/{{ term.title }}">{{ term.title }}</a>
+                {{ term.title }}
             </li>
             {% endfor %}
         </ul>
     </nav>
 
+Now do your CSS.
+ 
 
-If you would like anchors, and the model has a field 'slug', there is a templatetag,
+## URLs for Taxonomies 
+What we mean by presenting a taxonomy to users is making URLs to point to terms and presenting terms as a View.
+
+Not all taxonomies will need URLs, taxonomies can be used for internal organisation. But a taxonomy with URLs can make the base of a site. For example, a few CMS now assume that pages on a site are organised as a tree.
+
+
+### Planning
+All kinds of fancy pages nowadays, but a classic web navigation page would be a list category links, or a tree of objects. Most sites add selected lists of attached objects. But if you have a search page enabled on your site, maybe you would want to go to that? That's a different kind of URL.
+
+If you want term/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
+
+I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadgrumbs and category listings.
+
+Anyway, lets start with...
+
+
+### Taxonomy data as anchors
+You start with rendering taxonomy data as anchors. This will happen in some View. You use the API to deliver some data to a template.
+
+If the model has a field 'slug', and is a list of terms, the app has a templatetag,
 
 <nav>
-    {% breadcrumb crumb_terms url_prefix='/category/' %}
+    {% term_anchors crumb_terms url_prefix='/category/' class='breadcrumb' %}
 </nav>
 
 which accepts optional args,
 
     url_prefix
-        to go before the slug. default = '/category/'
+        to go before the slug. Default '/category/'
+    url_id_field
+        fieldname for id data for the URL. Default 'slug'
+
+Other keyword arguments are rendered as HTML attributes.
 
 The templatetag has not much control over rendering, but maybe you dont need that. The tag above renders as,
 
@@ -342,21 +396,8 @@ The templatetag has not much control over rendering, but maybe you dont need tha
         ...
     </ul>
 
-Unless you've built some taxonomy Views, these links don't point at anything. But it looks like a start, right? You could drop the links and make a simple visual display. Or follow the next section.
- 
+Unless you've built some taxonomy Views, these links don't point at anything. But it's a start.
 
-## URLs for Taxonomies 
-What we mean by presenting a taxonpomy to users is making URLs to point to terms and presenting terms as a View.
-
-Not all taxonomies will need URLs, taxonomies can be used for internal organisation. But a taxonomy with URLs can make the base of a site. For example, a few CMS now assume that pages on a site are organised as a tree.
-
-
-### Planning
-All kinds of fancy pages nowadays, but a classic web navigation page would be a list category links, or a tree of bojects. Most sites add selected lists of attached objects. But if you have a search page enabled on your site, maybe you would want to go to that?
-
-If you do want term/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
-
-I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadgrumbs and category listings.
 
 ### Declare a term model with a slug field
 You can, and sites do, have URLs like,
@@ -370,11 +411,11 @@ If it won't be important for users, this is simple and clean. But if you'd like 
 Now a View.
 
 ### Term view
-Wherever the taxonomy is located, make a DetailView for the Term. Note this isn't a ListView. Sure, we are listing things, but the basic idea here is 'something to do with a single category', not 'list categories',
+Wherever the taxonomy is located, make a DetailView for the Term. Note this isn't a ListView. Sure, we are listing things, but the basic idea here is 'something to do with a single category', not 'list of categories',
 
     from django.views.generic import DetailView
-    from taxonomy.models import Category
-    from article.models import Page
+    from ???.models import Category
+    from page.models import Page
 
 
     class CategoryDetailView(DetailView):
@@ -382,27 +423,29 @@ Wherever the taxonomy is located, make a DetailView for the Term. Note this isn'
         context_object_name = 'category'
 
         def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
             if self.object:
                 # You chould shovel in some breadcrumb data
                 ctx['crumb_terms'] = self.object.api(self.object.id).ascendent_path()
 
                 # ...or a list of descendant Terms            
-                ctx['descendant_terms'] = self.object.api(self.object.id).descendents()
+                ctx['descendant_terms'] = self.object.api(self.object.id).descendants()
 
                 # ...or element data from this category (this could use a related query if you have set up like that)
                 ctx['elements'] = Page.objects.filter(category=self.object)
+            return ctx
 
 And a template, category_detail.py. For example,
 
     {% extends 'base.html' %}
     {% load taxonomy_displays %}
 
-    {% block title %}category.name{% endblock %}
+    {% block title %}{{ category.name }}{% endblock %}
     {% block body_class %}template-term{% endblock %}
 
     {% block content %}
     <nav>
-        {% breadcrumb crumb_terms %}
+        {% term_anchors crumb_terms class='breadcrumb' %}
     </nav>
     <div class="termdetail-stock">
         <header class="termdetail-header">
@@ -412,15 +455,14 @@ And a template, category_detail.py. For example,
         <div class="termdetail-block">
             <h1>{{ category.name }}</h1>
             <h2>Sub-categories</h2>
-            {% breadcrumb crumb_terms %}
+            {% term_anchors descendant_terms %}
             <h2>Elements</h2>
             <p class="elements-text">{{ elements }}</p>
-            {% endfor %}
         </div>
     </div>
     {% endblock %}
 
-You'll want to do more than this. Import your site logos, messanging, and navigation templates. Nowadays, most people would jamb the descendant Term data into a menu. If you keep the elements on the page, make them into a list of anchors. Nowadays people go beserk with these pages. Underneath they are a category View, but are loaded with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
+You'll want to do more than this. Underneath they are a category View, but nowadays people go beserk with these pages. Import your site logos, messanging, and navigation templates. Jamb the descendant Term data into menus. If you keep the elements on the page, make them into a list of anchors. Load with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
 
 
 ### Category URLs
