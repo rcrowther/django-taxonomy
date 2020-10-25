@@ -53,6 +53,9 @@ class TermMethods:
         self.cache = cache
         self.id = term_id
 
+    def term(self):
+        return self.cache.term_map()[self.id]
+        
     def depth(self):
         pos = self.cache.tree_locations().get(self.id)
         tree = self.cache.ftree()
@@ -386,7 +389,11 @@ class TaxonomyAPI:
         self._ftree = None
         self._tree_locations = None
         
-    def __call__(self, term_id):
+    def __call__(self, *args, **kwargs):
+        if args:
+            term_id = args[0]
+        else:
+            term_id = self.model_term.objects.get(**kwargs).id
         return TermMethods( 
             self.model_term, 
             self.model_termparent, 

@@ -1,18 +1,14 @@
 from django import forms
 from taxonomy.models import TermParentBase
-#from django.utils.datastructures import MultiValueDict
-#from django.forms.widgets import HiddenInput
-#from django.forms.models import ModelFormMetaclass
-#from django.http.request import QueryDict
-#from taxonomy.taxonomy import TaxonomyAPI
 
 
-#N These may be small forms, but full of tricks, and so annotated.
-#N https://docs.djangoproject.com/en/3.1/topics/forms/modelforms/
-#N https://medium.com/@hakibenita/how-to-add-custom-action-buttons-to-django-admin-8d266f5b0d41
+
 class TermFormPartial(forms.ModelForm):
     '''
-    Handle single parenting. 
+    Handle a Term and parenting. 
+    It's called Partial because, like a ModelForm, it will not 
+    instanciate without a Meta declaration. This could be provided 
+    for example, by declaraation, or through a ModelAdmin.
     '''    
     #! _errors
     # 1. It may be a modelform, but it has extra field for parent. This 
@@ -34,7 +30,6 @@ class TermFormPartial(forms.ModelForm):
         instance = kwargs.get('instance')
         if (instance):
             # probably an 'update'
-            print('Termform update')
             # setup parent choices
             api = self._meta.model.api(instance.id)
             self.declared_fields['parent'].choices = api.reparent_choices()
@@ -42,8 +37,6 @@ class TermFormPartial(forms.ModelForm):
             kwargs['initial']['parent'] = api.id_parent()
         else:
             # An 'add' or base form (used by admin)
-            print('Termform add')
-            print(str(kwargs))
             # setup parent choices
             self.declared_fields['parent'].choices = self._meta.model.api.initial_choices()
             # ...then 'select' current parent

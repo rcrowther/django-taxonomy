@@ -49,7 +49,7 @@ class TermBase(models.Model):
                         "'{}' class must have an attribute 'api' declared.".format(
                             cls.__name__,
                         ),
-                        id='T001',
+                        id='taxonomy.E001',
                     )
                 )
             if (not(isinstance(cls.api, TaxonomyAPI))):
@@ -58,7 +58,7 @@ class TermBase(models.Model):
                         "'{}' attribute 'api' must be a subclass of TaxonomyAPI.".format(
                             cls.__name__,
                         ),
-                        id='T002',
+                        id='taxonomy.E002',
                     )
                 )
         return errors
