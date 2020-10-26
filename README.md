@@ -17,26 +17,25 @@ This app is called 'django-taxonomy', but internally the module is called 'taxon
 ## Why you may or may not want this app
 Pro
 - It's simple
-- Terms are subclassed and can be customiised
+- Terms can be customised
 - It's got displays and Admin builtin 
 
 Con
-- No multiparent (node map) option
+- No multi-parent (node map) option
 - Poor at finding descendant Term elements, so poor the functionality has not been implemented
-- There's pages of README for 300 lines
+- 300 lines of code but a lot of README
 
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
-This app has only one (non)feature over the heavyweights here. It is simple. 
+This app has only one (non)feature over the heavyweights. It is simple. 
 It has no dependencies. It has only 300 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
 
 ## Overview
-
 Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every subclass of TermBase becomes a tree of terms. 
 
-The base is called 'Term' because, well, that's the name (sometimes people use 'Node'). It's not really a Category because the full structure, a Taxonomy, is a tree of Terms, not a freestanding or otherwise organised set of Categories. To vaoid puzzling end users, I suggest you call all public facing display a 'Category'
+The base is called 'Term' because, well, that's the name (sometimes people use 'Node'). It's not really a Category because the full structure, a Taxonomy, is a tree of Terms, not a freestanding or otherwise organised set of Categories. To avoid puzzling end users, I suggest you call all public facing display a 'Category'
 
-An element is any Django object/Model attached to a Term. The join is usually through a Foreign key.
+An Element is any Django Model instance attached to a Term. The join is usually through a Foreign key.
 
 
 ## If you have done this before
@@ -44,7 +43,7 @@ An element is any Django object/Model attached to a Term. The join is usually th
 - Declare a taxonomy
 - [Add an Admin](#Admin)
 
-I think that's all. Don't forget you use the [API](#the-api) to access the taxonomy, and you need a foreign key to [add ojects to it](#attaching-objects).
+I think that's all. Use the [API](#the-api) to access the taxonomy, and foreign keys to [add objects](#attaching-objects).
 
 
 ## Install
@@ -62,7 +61,7 @@ Declare in Django settings,
             ...
         ]
 
-Ther are migrations, but not for the app. That comes after you have declared a tree. See next section.
+There will be migrations, but not for the app. That comes after you have declared a tree. See next section.
 
 
 ## Creating a Taxonomy
@@ -70,7 +69,7 @@ Often, a taxonomy is associated with one model/object. In which case, you can cr
 
     /manage.py startapp categories
 
-and install. Either way, here is an example of a modeldeclaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
+and install. Either way, here is an example of a model declaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
         
     from django.db import models
     from taxonomy.models import TermBase, TermParentBase
@@ -248,7 +247,7 @@ You'll need to add a field to your Model. Usually you would use a ForeignKey (un
     ...
     from ???.models import Category
 
-    class MyModel(models.Model):
+    class Page(models.Model):
         category = models.ForeignKey(
             Category,
             on_delete=models.CASCADE,
@@ -297,9 +296,9 @@ Then render.
 
 
 ### Multiple models
-If you follow this method for attaching-objects then different models can be attached to the same taxonomy terms. The taxonomy knows nothing about the attached objects, and CRUD manipution of the Taxonomy will work as you hope. For example, if the foreign key is set to cascade deletes, delete a term and attached objects will be deleted, even in different models.
+If you follow this method for attaching-objects then different models can be attached to the same taxonomy terms. The taxonomy knows nothing about the attached objects, and CRUD manipulation of the Taxonomy will work as you hope. For example, if the foreign key is set to cascade deletes, delete a term and attached objects will be deleted, even in different models.
 
-This can get messy in a few ways. First, you'll need to think about how to handle objects returned from terms, because they may be from different models. Perhaps a base model will help, so you can guarentee consistent handling? 
+This can get messy in a few ways. First, you'll need to think about how to handle objects returned from terms, because they may be from different models. Perhaps a base model will help, so you can guarantee consistent handling? 
 
 Second, if you use Djangos related managers, multiple models will create multiple related managers. Every different model you add to a taxonomy will add a new manager until each Term has a list like 'info_page_set', 'article_set', 'code_article_set', and more. There's two basic approaches. Either accept that there will be a lot of managers, and try to be consistent. Or turn off related lookups. In that case, if you need a list of elements, search the original models. Either way, you need to think if you are searching for elements of one type attached to a term (easy), or elements of any type (needs organisation).
 
@@ -365,7 +364,7 @@ All kinds of fancy pages nowadays, but a classic web navigation page would be a 
 
 If you want term/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
 
-I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadgrumbs and category listings.
+I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadcrumbs and category listings.
 
 Anyway, lets start with...
 
@@ -462,7 +461,7 @@ And a template, category_detail.py. For example,
     </div>
     {% endblock %}
 
-You'll want to do more than this. Underneath they are a category View, but nowadays people go beserk with these pages. Import your site logos, messanging, and navigation templates. Jamb the descendant Term data into menus. If you keep the elements on the page, make them into a list of anchors. Load with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
+You'll want to do more than this. Underneath these pages are a category View, but nowadays people go berserk with them. Import your site logos, messaging, and navigation templates. Jamb the descendant Term data into menus. If you keep the elements on the page, make them into a list of image anchors. Load with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
 
 
 ### Category URLs
@@ -518,7 +517,7 @@ Trees that display terms on top of each other, extending downwards like roots on
 
 ![Stacked Tree](screenshots/stack_tree.png)
 
-These displays use a lot of visual space. Only a small taxonomy can be displayed on a display. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvanatages,
+These displays use a lot of visual space. Only a small taxonomy can be displayed on a display. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvantages,
 
 Pros
 - They are part of the webpage, so can be manipulated and searched like HTML
@@ -589,7 +588,7 @@ etc.
 
 ## EndNote
 ### The evironment
-The Django system presents substancial difficulties to anyone implementing structures like this. There is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Form-building seems flexible, but you can't pin partials together, nor integrate with Admin. And admin may be customisable, but it's a blob of code and can not be extended. The only functionality on the coder's side is Django's model building, and Python hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
+The Django system presents substantial difficulties to anyone implementing structures like this. There is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Form-building seems flexible, but you can't pin partials together, nor integrate with Admin. And admin may be customisable, but it's a blob of code and can not be extended. The only functionality on the coder's side is Django's model building, and Python hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
 
 
 ### Straight vs. MPTT etc. implementation
