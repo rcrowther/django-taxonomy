@@ -24,7 +24,7 @@ Con
 - No multi-parent (node map) option
 - Poor at finding descendant elements, so poor the functionality has not been implemented
 - 500 lines of code but a lot of README
-- tests (Ummm)[#tests]
+- tests [Ummm](#tests)
 
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
@@ -257,7 +257,7 @@ You'll need to add a field to your Model. Usually you would use a ForeignKey (un
 
 CASCADE means if the Term is deleted, the element is deleted also. One day this will be an important decision. Use SET_NULL or SET_DEFAULT if you generally want to keep material even if the taxonomy is changed or discarded. 
 
-Also (related_name selects are switched off)[https://docs.djangoproject.com/en/3.1/ref/models/fields/#django.db.models.ForeignKey.related_name]. Related name selects will let you see a term and find the objects attached to it. But I'll be ok searching MyModel for elements in a category. Your choice.
+Also [related_name selects are switched off](https://docs.djangoproject.com/en/3.1/ref/models/fields/#django.db.models.ForeignKey.related_name). Related name selects will let you see a term and find the objects attached to it. But I'll be ok searching MyModel for elements in a category. Your choice.
 
 It's possible you may want to leave an object without a parent. That could mean 'unpublished', or mean 'dont destroy with the category'. To do that, enable null or a default on the field,
 
