@@ -10,24 +10,19 @@ BIG_DEPTH = 9999999999
 DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
 DepthTerm = namedtuple('DepthTerm', ['depth', 'term'])
 
-# class NoTermElementTable(AttributeError):
-    # pass
+
 
 class ChoiceIterator:
     def __init__(self, depthTerms):
         self.depthTerms = depthTerms
 
     def __iter__(self):
-        #yield (TermParent.NO_PARENT, 'None (root term)')
         yield (NO_PARENT, 'None (root term)')
         prev_depth = 99999999
         for e in self.depthTerms:
-            #print('ChoiceIterator')
-            #print(str(e.depth))
             b = []
             depth = e.depth
             if (depth == 0):
-                #title = terms(self.taxonomy_id)[e.tid].name
                 title = e.term.name
             elif (prev_depth <= depth):
                 title = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007└─\u2007' + e.term.name
@@ -106,7 +101,7 @@ class TermMethods:
         parent_map = self.cache.parent_map()
         tid = parent_map[self.id]
         b = []
-        while (tid):
+        while (tid != NO_PARENT):
             b.append(tid)
             tid = parent_map[tid]
         return b
@@ -145,7 +140,7 @@ class TermMethods:
         descendants = self.id_descendants()
         return [ term_map[tid] for tid in descendants ]
         
-    def depth_id_ascendent_path(self):
+    def depth_id_ascendant_path(self):
         '''
         Tree ascscendants
         return
@@ -203,13 +198,13 @@ class TermMethods:
             stack.append(b)            
         return stack
         
-    def ascendent_path(self):
+    def ascendant_path(self):
         '''
         Path of Terms 
             [Term, ....], ordered from root to target term.
         '''
         term_map = self.cache.term_map()
-        path = self.depth_id_ascendent_path()
+        path = self.depth_id_ascendant_path()
         return [ term_map[e.tid] for e in path ]
     
     def descentant_paths(self):
@@ -276,7 +271,6 @@ class TermMethods:
         attachment to terms that are not descendants, to avoid circular 
         references.
         '''
-        print('API reparent_choices')
         #? This feels like a shambles. but the slick thing would be
         # tree ids no descendants?
         descendants = self.id_descendants()
@@ -389,7 +383,7 @@ class TaxonomyAPI:
         return self._ftree
     
     # index
-    IdxDepth = namedtuple('IdxDepth', ['idx', 'depth'])
+    #IdxDepth = namedtuple('IdxDepth', ['idx', 'depth'])
 
     def tree_locations(self):
         if (self._tree_locations is None):
@@ -440,7 +434,7 @@ class TaxonomyAPI:
         '''
         self.model_termparent.objects.all().delete()
         self.model_term.objects.all().delete()
-        self.clear(self.id)
+        self.clear()
 
     def depth_id_tree(self, max_depth=None):
         if (max_depth is None):
@@ -461,5 +455,4 @@ class TaxonomyAPI:
         '''
         Choices for parenting a term on creation
         '''
-        print('initial choices')
         return list(ChoiceIterator((e for e in self.tree())))

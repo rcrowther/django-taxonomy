@@ -2,6 +2,7 @@ from django.db import models
 from django.core import checks
 from django.urls import reverse
 from taxonomy.api import TaxonomyAPI
+from taxonomy.models import TermBase, TermParentBase
 
 
 

@@ -22,7 +22,7 @@ class CrumbRenderer():
             [(depth, Term)]
         '''
         b = ['<ul class="breadcrumb">']
-        for e in term.api.ascendent_path().reverse():
+        for e in term.api.ascendant_path().reverse():
             depth = e[0]
             b.append('<li>')
             b.append(self.data_template(e))

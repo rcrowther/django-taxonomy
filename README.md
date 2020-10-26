@@ -22,13 +22,14 @@ Pro
 
 Con
 - No multi-parent (node map) option
-- Poor at finding descendant Term elements, so poor the functionality has not been implemented
-- 300 lines of code but a lot of README
+- Poor at finding descendant elements, so poor the functionality has not been implemented
+- 500 lines of code but a lot of README
+- tests (Ummm)[#tests]
 
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
 This app has only one (non)feature over the heavyweights. It is simple. 
-It has no dependencies. It has only 300 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
+It has no dependencies. It has only 500 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
 
 ## Overview
 Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every subclass of TermBase becomes a tree of terms. 
@@ -199,8 +200,8 @@ The term call exposes many term-specific methods. For making pages, the simple-n
 
     parent()
     children()
-    ascendent_path()
-    descendent_paths()
+    ascendant_path()
+    descendant_paths()
     tree(self, max_depth=None)
 
 e.g.
@@ -283,7 +284,7 @@ Let's say this object is set up, and has a DetailView. There's much taxonomy det
         if self.object:
             category = self.object.category
             # get the path to root
-            ctx['crumb_terms'] = category.api(category.id).ascendent_path()
+            ctx['crumb_terms'] = category.api(category.id).ascendant_path()
             # child terms
             ctx['child_categories'] = category.api(category.id).children()
             # disorganised collection of descendant terms
@@ -334,7 +335,7 @@ Stock Django. Add some taxonomy data to the model View,
             if self.object:
                 # cranky, but avoids Taxonomy import
                 category = self.object.category
-                ctx['crumb_terms'] = category.api(category.id).ascendent_path()
+                ctx['crumb_terms'] = category.api(category.id).ascendant_path()
             return ctx
 
 
@@ -425,7 +426,7 @@ Wherever the taxonomy is located, make a DetailView for the Term. Note this isn'
             ctx = super().get_context_data(**kwargs)
             if self.object:
                 # You chould shovel in some breadcrumb data
-                ctx['crumb_terms'] = self.object.api(self.object.id).ascendent_path()
+                ctx['crumb_terms'] = self.object.api(self.object.id).ascendant_path()
 
                 # ...or a list of descendant Terms            
                 ctx['descendant_terms'] = self.object.api(self.object.id).descendants()
@@ -572,7 +573,7 @@ The tags use a class inline_templates.Stacktree, which is more flexible than the
 
 
 ## Implementation notes
-There are a few ways to implement a tree. Here is our version.
+There are a few ways to implement a tree.
 
 ### Creating a Root Term
 You can set any number of terms at base. If you would like a taxonomy with a singular base, start a single term which will be the 'root term'. Build from there e.g. ::
@@ -585,6 +586,21 @@ You can set any number of terms at base. If you would like a taxonomy with a sin
     ...
   
 etc.
+
+
+### Tests
+So far I have not found a way to test this app without Python ducktape. There are tests.  They are in a directory 'ttest'. To run the tests you must install django-taxonomy, then move 'ttests' to the top level. 'ttests' is a complete app. Install,
+
+    
+        INSTALLED_APPS = [
+            ...
+            'ttest.apps.TTestConfig',
+            'taxonomy.apps.TaxonomyConfig',
+            ...
+        ]
+Then you will find the tests in the sub-folder of 'ttests'.
+
+
 
 ## EndNote
 ### The evironment
