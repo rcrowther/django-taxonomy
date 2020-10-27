@@ -1,21 +1,19 @@
 from django.db import models
 from django.core import checks
 from django.urls import reverse
-from taxonomy.api import TaxonomyAPI
-from taxonomy.models import TermBase, TermParentBase
+from taxonomy.api import NodeTreeAPI
+from taxonomy.models import NodeBase, NodeParentBase
 
 
 
 
-class Term(TermBase):
+class Cat(NodeBase):
 
     # Not unique. Terms may be in different taxonomies. They may
     # be duplicated at different places in a hierarchy e.g. 'sports>news'
     # 'local>news'.
     slug = models.SlugField(
         max_length=64,
-        #blank=True,
-        #default='',
         help_text="Short name for use in urls.",
     )
   
@@ -32,7 +30,7 @@ class Term(TermBase):
     api = None
 
     def __repr__(self):
-        return "Term(id:{}, name:{}, slug:{}, weight:{})".format(
+        return "Category(id:{}, name:{}, slug:{}, weight:{})".format(
             self.id,
             self.name,
             self.slug,
@@ -41,12 +39,12 @@ class Term(TermBase):
 
 
 
-class TermParent(TermParentBase):
+class CatParent(NodeParentBase):
         pass
                 
 
 # Always this format, but a new one needed for every taxonomy.
-Term.api = TaxonomyAPI(
+Cat.api = NodeTreeAPI(
             Term, 
-            TermParent, 
+            CatParent, 
          ) 

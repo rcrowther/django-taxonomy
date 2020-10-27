@@ -16,13 +16,13 @@ class CrumbRenderer():
         )
         return d
 
-    def rend(self, term, spacer="\u2007>\u2007"):
+    def rend(self, category, spacer="\u2007>\u2007"):
         '''
         tree
-            [(depth, Term)]
+            [(depth, Cat)]
         '''
         b = ['<ul class="breadcrumb">']
-        for e in term.api.ascendant_path().reverse():
+        for e in category.api.ascendant_path().reverse():
             depth = e[0]
             b.append('<li>')
             b.append(self.data_template(e))

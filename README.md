@@ -17,7 +17,7 @@ This app is called 'django-taxonomy', but internally the module is called 'taxon
 ## Why you may or may not want this app
 Pro
 - It's simple
-- Terms can be customised
+- Nodes (Categories) can be customised
 - It's got displays and Admin builtin 
 
 Con
@@ -32,11 +32,17 @@ This app has only one (non)feature over the heavyweights. It is simple.
 It has no dependencies. It has only 500 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
 
 ## Overview
-Taxonomy has a model 'TermBase', which you can extend with whatever data you want. Every subclass of TermBase becomes a tree of terms. 
+The app is called Taxonomy, because that's what it is, a vocabulary of terms. You might think of that as a tree of categories.
 
-The base is called 'Term' because, well, that's the name (sometimes people use 'Node'). It's not really a Category because the full structure, a Taxonomy, is a tree of Terms, not a freestanding or otherwise organised set of Categories. To avoid puzzling end users, I suggest you call all public facing display a 'Category'
+However, I've used the common Python/Django word 'Node' for the category items.
 
-An Element is any Django Model instance attached to a Term. The join is usually through a Foreign key.
+To make a tree of categories, Taxonomy has a model 'NodeBase'. You subclass 'NodeBase' to make a new Model. One Model/database table = one tree. 
+
+'NodeBase' can be extended with whatever data you want. So your Node (category) can be customised with descriptions, SEO material, external reference numbers, whatever you need to reference and present your material.
+
+'Node' is not a good name for end users. Whenever end users are concerned, I'd use the word 'category'. Even in the application help I use the word 'Category'.
+
+Any Node/Category can have Elements attached. An Element is any Django Model instance. The join is usually through a Foreign key.
 
 
 ## If you have done this before
@@ -68,21 +74,22 @@ There will be migrations, but not for the app. That comes after you have declare
 ## Creating a Taxonomy
 Often, a taxonomy is associated with one model/object. In which case, you can create the taxonomy in the model for the app. If you use [Multiple Models](#multiple-models) it may be better to create the taxonomy in a freestanding app e.g.
 
-    /manage.py startapp categories
+    /manage.py startapp sitecategory
 
-and install. Either way, here is an example of a model declaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the term titles can be used in URLs. That means the model has an get_absolute_url method too (see below),
+and install. Either way, here is an example of a model declaration. This adds a 'description' field, so the taxonomy can be used for more helpful user display. It also includes a 'slug' field, so the category titles can be used in URLs. That means the model has a get_absolute_url() method too (see below),
         
     from django.db import models
-    from taxonomy.models import TermBase, TermParentBase
-    from taxonomy.api import TaxonomyAPI
+    from django.urls import reverse
+    from taxonomy.models import NodeBase, NodeParentBase
+    from taxonomy.api import NodeTreeAPI
 
 
 
-    class Category(TermBase):
+    class SiteCategory(NodeBase):
 
-        # Not unique. Terms may be in different taxonomies. They may
-        # be duplicated at different places in a hierarchy e.g. 'sports>news'
-        # 'local>news'.
+        # Not unique. Node names may be duplicated at different places in a 
+        # hierarchy e.g. 'sports>news', 'local>news'. but it may save later
+        # trouble to make them unique...
         slug = models.SlugField(
             max_length=64,
             help_text="Short name for use in urls.",
@@ -101,7 +108,7 @@ and install. Either way, here is an example of a model declaration. This adds a 
         api = None
 
         def __repr__(self):
-            return "Term(id:{}, name:{}, slug:{}, weight:{})".format(
+            return "SiteCategory(id:{}, name:{}, slug:{}, weight:{})".format(
                 self.id,
                 self.name,
                 self.slug,
@@ -111,36 +118,38 @@ and install. Either way, here is an example of a model declaration. This adds a 
 
 
     # Always the same, but a new class needed for every taxonomy.
-    class CategoryParent(TermParentBase):
+    class SiteCategoryParent(NodeParentBase):
             pass
                     
 
     # Always this format, but a new instance needed for every taxonomy.
-    Category.api = TaxonomyAPI(
-                Category, 
-                CategoryParent, 
+    SiteCategory.api = NodeTreeAPI(
+                SiteCategory, 
+                SiteCategoryParent, 
              ) 
+
+Note that I called the new Node, and hence tree of nodes, 'SiteCategory'. You'll probably want to include the model name of attached elements somewhere, to avoid clashes if you have two or three taxonomies. 'Category' alone is too generic. 'ImgCategories' is probably better.
 
 Then migrate.
 
 
 ## Admin
-You need a special admin found in 'taxonomy.admins'. The admin adds a 'parent' field to Term operations, and routes CRUD operations through the API.
+You need a special admin found in 'taxonomy.admins'. The admin adds a 'parent' field to Node forms, and routes CRUD operations through the API.
 
-As usual, the admin needs a 'fields' attribute. One comment here, if you do not have a 'fields' statement, the 'parent' field is placed at the bottom of the form. Almost certainally, this is not what you want. Also, you will want the 'parent' field to show in most cases, so put 'parent' in the 'fields' list. 
+As usual, the admin needs a 'fields' attribute. One comment here, if you do not have a 'fields' statement, the 'parent' field is placed at the bottom of the form. This is probably not what you want. Also, you will want the 'parent' field to show in most cases, so put 'parent' in the 'fields' list. 
 
-You can customise as usual. Here I've added a 'prepopulate' attribute for the slug field added to the Category Term in the example above,
+You can customise as usual. Here I've added a 'prepopulate' attribute for the slug field added to the SiteCategory node in the example above,
 
     from django.contrib import admin
-    from ???.models import Category
+    from ???.models import SiteCategory
     from taxonomy import admins
 
 
 
-    class CategoryAdmin(admins.TermAdmin):
+    class SiteCategoryAdmin(admins.CatAdmin):
         fields = ('parent', 'name', 'slug', 'description', 'weight')
         prepopulated_fields = {"slug": ("name",)}
-    admin.site.register(Category, CategoryAdmin)
+    admin.site.register(SiteCategory, SiteCategoryAdmin)
 
 There we are,
 
@@ -148,55 +157,55 @@ There we are,
 
 
 ## The API
-As an app, Taxonomy is spread across DB tables which need code to manipulate them. So the code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation).
+As an app, Taxonomy is spread across DB tables which need code to manipulate them. The code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation).
 
-The api hangs off any object based on TermBase, and can also be accessed from any TermBase class. Using the model created above, Category,
+The api hangs off any object based on NodeBase, and can also be accessed from any NodeBase class. Using the model created above, SiteCategory,
 
-    from taxonomy.models import Category
+    from sitecategory.models import SiteCategory
 
-    api = Category.api
+    api = SiteCategory.api
 
-Like the queryset manager 'objects', the api is also present on any TermBased object,
+The api is also present on any NodeBase object,
 
-    from taxonomy.models import Category
+    from sitecategory.models import SiteCategory
 
-    obj = Category.objects.get(id=1)
+    obj = SiteCategory.objects.get(id=1)
     obj,api
 
 The attribute 'api' exposes methods for a tree,
 
     delete() (whole tree)
-    save() (a Term)
+    save() (a Cat)
     tree()
 
 e.g.
 
     obj,api.delete()
 
-deletes the whole tree, i.e. all terms (including 'obj'), all other data, and cache. 
+deletes the whole tree, i.e. all nodes (including 'obj'), all other data, and cache. 
 
-You can call the API with a Term id, which gives you methods for a single Term,
+You can call the API with a Node id, which gives you methods for a single Node,
 
-    from taxonomy.models import Category
+    from sitecategory.models import SiteCategory
 
-    # term = term with id=4
-    term = Category.api(4).term()
+    # node = node with id=4
+    node = SiteCategory.api(4).node()
 
 The call also accepts get() parameters, like the Django objects manager objects.get(), which can be handy,
  
-    term = Category.api(name='dvds').term()
+    node = SiteCategory.api(name='dvds').node()
 
 So,
 
-    Category.api(7).term()
+    Category.api(7).node()
 
 returns the same result as,
 
-    Category.api(id=7).term()
+    Category.api(id=7).node()
 
 ...but the simple integer parameter does no initial DB lookup.
 
-The term call exposes many term-specific methods. For making pages, the simple-named methods return full term data,
+The call exposes many node-specific methods. For making pages, the simple-named methods return full node data,
 
     parent()
     children()
@@ -206,33 +215,33 @@ The term call exposes many term-specific methods. For making pages, the simple-n
 
 e.g.
 
-    Category.api(id=7).tree()
+    SiteCategory.api(id=7).tree()
 
-returns a tree descending from Term id=7.
+returns a tree descending from Node id=7.
 
 Some of the other methods only deal with DB ids.
 
-The structure of tree data is worth mentioning. It is usually a flat tree of depth and Termdata coupled in a Tuple, gathered into a list,
+The structure of tree data is worth mentioning. It is usually a flat tree of depth and Node data coupled in a Tuple, gathered into a list,
 
     [
-        (0, Term1)
-        (1, Term2)
-        (1, Term3)
-        (0, Term4)
-        (1, Term5)
-        (2, Term6)
-        (3, Term7)
+        (0, Node1)
+        (1, Node2)
+        (1, Node3)
+        (0, Node4)
+        (1, Node5)
+        (2, Node6)
+        (3, Node7)
         ...
     ]
 
 This is the kind of data the app uses to render the select boxes in Admin.
 
-One point worth knowing is that, since these taxonomies are single-parent, there can be only one path back to the taxonomy root. But there can be several paths towards leaves. Ask for descendant_paths() and you will get a list of lists.
+One point worth knowing is that, since these taxonomies are single-parent, there can be only one path back to the root. But there can be several paths towards leaves. Ask for descendant_paths() and you will get a list of lists.
 
 ### Accessing taxonomy data
-You can use the API in the shell, but also jamb it fairly statically into a webpage. For example, here are the objects attached to a base category, 
+You can use the API in the shell, but also jamb it statically into a webpage. For example, here are the root categories in a tree, 
 
-            ctx['root_elements'] = Page.objects.filter(category=1)
+            ctx['root_elements'] = SiteCategory.api(NO_PARENT).children()
 
 pushed into a navbar with some CSS,
 
@@ -240,43 +249,43 @@ pushed into a navbar with some CSS,
 
 
 ## Attaching objects
-### Term recorded in object
-This is the way most people think about this. A Page has a category of 'Psychology'.
+### Category recorded in object
+This is the way most people think about this. A model 'Page' has a category of 'Psychology'.
 
 You'll need to add a field to your Model. Usually you would use a ForeignKey (unless your data can fall into many categories. In that case, use a ManyToManyField).
 
     ...
-    from ???.models import Category
+    from sitecategory.models import SiteCategory
 
     class Page(models.Model):
         category = models.ForeignKey(
-            Category,
+            SiteCategory,
             on_delete=models.CASCADE,
             related_name='+',
         )
 
-CASCADE means if the Term is deleted, the element is deleted also. One day this will be an important decision. Use SET_NULL or SET_DEFAULT if you generally want to keep material even if the taxonomy is changed or discarded. 
+CASCADE means if the Node is deleted, the element is deleted also. One day this will be an important decision. If you want to keep material when the taxonomy is changed or discarded, use SET_NULL or SET_DEFAULT. 
 
-Also [related_name selects are switched off](https://docs.djangoproject.com/en/3.1/ref/models/fields/#django.db.models.ForeignKey.related_name). Related name selects will let you see a term and find the objects attached to it. But I'll be ok searching MyModel for elements in a category. Your choice.
+Also [related_name selects are switched off](https://docs.djangoproject.com/en/3.1/ref/models/fields/#django.db.models.ForeignKey.related_name). Related name selects will let you see a node and find the objects attached to it. But I'll be ok searching Page for elements in a category. Your choice.
 
-It's possible you may want to leave an object without a parent. That could mean 'unpublished', or mean 'dont destroy with the category'. To do that, enable null or a default on the field,
+It's possible you may want to leave an object without a parent. That could mean 'unpublished', or "don't destroy with the category". To do that, enable null or a default on the field,
 
-    from taxonomy import UNPARENTED
+    from taxonomy import UNCATEGORIZED
 
     class Page(models.Model):
         category = models.ForeignKey(
             Category,
             blank=True,
-            default=UNPARENTED,
+            default=UNCATEGORIZED,
             on_delete=models.SET_DEFAULT,
         )
 
-UNPARENTED is a sentinel value from the app. I'm not fond of null in DB's, but you could use that if you want.
+UNCATEGORIZED is a sentinel value from the app. I'm not fond of null in DB's, but you could use that if you want.
 
-This model will deliver the usual Django display in Admin, a ModelChoiceField, which is ok. If you have many Terms you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
+This model will deliver the usual Django display in Admin, a ModelChoiceField, which is ok. If you have many Nodes you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
 
-### Taxonomy in an attached object view
-Let's say this object is set up, and has a DetailView. There's much taxonomy detail you can use to extend the functionality of the page. This is discussed in more detail in (rendering)[#rendering], but this is how to get the data,
+### Attached object views
+Let's say this object is set up, and has a DetailView. There's much taxonomy detail you can recover and use to extend the functionality of the page. This is discussed in more detail in [rendering](#rendering), but this is how to get the data,
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -284,10 +293,10 @@ Let's say this object is set up, and has a DetailView. There's much taxonomy det
         if self.object:
             category = self.object.category
             # get the path to root
-            ctx['crumb_terms'] = category.api(category.id).ascendant_path()
-            # child terms
+            ctx['crumb_nodes'] = category.api(category.id).ascendant_path()
+            # child nodes
             ctx['child_categories'] = category.api(category.id).children()
-            # disorganised collection of descendant terms
+            # disorganised collection of descendant nodes
             ctx['descendant_categories'] = category.api(category.id).descendants()
             # get sibling objects (in the same category)
             ctx['siblings'] = self.model.objects.filter(category=category)
@@ -297,15 +306,15 @@ Then render.
 
 
 ### Multiple models
-If you follow this method for attaching-objects then different models can be attached to the same taxonomy terms. The taxonomy knows nothing about the attached objects, and CRUD manipulation of the Taxonomy will work as you hope. For example, if the foreign key is set to cascade deletes, delete a term and attached objects will be deleted, even in different models.
+If you follow this method for attaching-objects then different models can be attached to the same taxonomy nodes. The taxonomy knows nothing about the attached objects, and CRUD manipulation of the Taxonomy will work as you hope. For example, if the foreign key is set to cascade deletes, delete a node and attached objects will be deleted, even in different models.
 
-This can get messy in a few ways. First, you'll need to think about how to handle objects returned from terms, because they may be from different models. Perhaps a base model will help, so you can guarantee consistent handling? 
+This can get messy in a few ways. First, you'll need to think about how to handle objects returned from nodes, because they may be from different models. Perhaps a base model will help, so you can guarantee consistent handling? 
 
-Second, if you use Djangos related managers, multiple models will create multiple related managers. Every different model you add to a taxonomy will add a new manager until each Term has a list like 'info_page_set', 'article_set', 'code_article_set', and more. There's two basic approaches. Either accept that there will be a lot of managers, and try to be consistent. Or turn off related lookups. In that case, if you need a list of elements, search the original models. Either way, you need to think if you are searching for elements of one type attached to a term (easy), or elements of any type (needs organisation).
+Second, if you use Django's related managers, multiple models will create multiple related managers. Every different model you add to a taxonomy will add a new manager until each Node has a list like 'info_page_set', 'article_set', 'code_article_set', and more. There's two basic approaches. Either accept multiple managers, and try to be consistent. Or turn off related lookups and, if you need a list of elements, search the original models. Either way, you need to think if you are searching for elements of one type attached to a node (easy), or elements of any type (needs organisation).
 
 
 ### Notes
-I would point out the above is not the only way. Objects can be recorded against Terms. Not only is the above not the only way, I don't like it. I'd prefer category data did not intrude on objects. However, [Django has no ability](#the-evironment).
+I would point out the above is not the only way. Objects can be recorded against categories. Not only is the above not the only way, I don't like it. I'd prefer category data did not intrude on objects. However, [Django has no ability](#the-evironment).
 
 
 
@@ -324,7 +333,7 @@ With some CSS work.
 Stock Django. Add some taxonomy data to the model View, 
 
     from django.views.generic import ListView, DetailView
-    from article.models import Page
+    from page.models import Page
 
     class PageDetailView(DetailView):
         model = Page
@@ -335,17 +344,17 @@ Stock Django. Add some taxonomy data to the model View,
             if self.object:
                 # cranky, but avoids Taxonomy import
                 category = self.object.category
-                ctx['crumb_terms'] = category.api(category.id).ascendant_path()
+                ctx['crumb_nodes'] = category.api(category.id).ascendant_path()
             return ctx
 
 
-Then, in the template 'page_detail.html', render 'crumb_terms'. Can do that explicitly, 
+Then, in the template 'page_detail.html', render 'crumb_nodes'. Can do that explicitly, 
 
    <nav class="topbar">
         <ul>
-            {% for term in breadcrumb %}
+            {% for node in crumb_nodes %}
             <li class="menu-item">
-                {{ term.title }}
+                {{ node.name }}
             </li>
             {% endfor %}
         </ul>
@@ -355,15 +364,15 @@ Now do your CSS.
  
 
 ## URLs for Taxonomies 
-What we mean by presenting a taxonomy to users is making URLs to point to terms and presenting terms as a View.
+What we mean by presenting a taxonomy to users is making URLs to point to nodes, then presenting nodes as a View.
 
-Not all taxonomies will need URLs, taxonomies can be used for internal organisation. But a taxonomy with URLs can make the base of a site. For example, a few CMS now assume that pages on a site are organised as a tree.
+Not all taxonomies will need URLs. Taxonomies can be used for internal organisation. But a taxonomy with URLs can make the base of a site. For example, a few CMS now assume that pages on a site are organised as a tree.
 
 
 ### Planning
 All kinds of fancy pages nowadays, but a classic web navigation page would be a list category links, or a tree of objects. Most sites add selected lists of attached objects. But if you have a search page enabled on your site, maybe you would want to go to that? That's a different kind of URL.
 
-If you want term/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
+If you want node/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
 
 I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadcrumbs and category listings.
 
@@ -373,11 +382,11 @@ Anyway, lets start with...
 ### Taxonomy data as anchors
 You start with rendering taxonomy data as anchors. This will happen in some View. You use the API to deliver some data to a template.
 
-If the model has a field 'slug', and is a list of terms, the app has a templatetag,
+If the model has a field 'slug', and is a list of nodes, the app has a templatetag,
 
-<nav>
-    {% term_anchors crumb_terms url_prefix='/category/' class='breadcrumb' %}
-</nav>
+    <nav>
+        {% node_anchors crumb_nodes url_prefix='/category/' class='breadcrumb' %}
+    </nav>
 
 which accepts optional args,
 
@@ -388,90 +397,90 @@ which accepts optional args,
 
 Other keyword arguments are rendered as HTML attributes.
 
-The templatetag has not much control over rendering, but maybe you dont need that. The tag above renders as,
+The templatetag has not much control over rendering, but maybe you don't need that. The tag above renders as,
 
     <ul class="breadcrumb">
-        <li><a href="/category/term_1">term 1</a></li>
-        <li><a href="/category/term_2">term 2</a></li>
+        <li><a href="/category/node_1">node 1</a></li>
+        <li><a href="/category/node_2">node 2</a></li>
         ...
     </ul>
 
 Unless you've built some taxonomy Views, these links don't point at anything. But it's a start.
 
 
-### Declare a term model with a slug field
+### Declare a Node model with a slug field
 You can, and sites do, have URLs like,
 
-    [host]/category/4
+    [host]/sitecategory/4
 
-If it won't be important for users, this is simple and clean. But if you'd like something more visual, add a slug field to the term model. Then the URL can look like,
+If it won't be important for users, this is simple and clean. But if you'd like something more visual, add a slug field to the node model. Then the URL can look like,
 
-    [host]/category/shrubs
+    [host]/sitecategory/shrubs
 
 Now a View.
 
-### Term view
-Wherever the taxonomy is located, make a DetailView for the Term. Note this isn't a ListView. Sure, we are listing things, but the basic idea here is 'something to do with a single category', not 'list of categories',
+### Node views
+Wherever the taxonomy is located, make a DetailView for the Nodes. Note this isn't a ListView. Sure, we are listing things, but the basic idea here is 'something to do with a single category', not 'list of categories',
 
     from django.views.generic import DetailView
-    from ???.models import Category
+    from sitecattegory.models import SiteCategory
     from page.models import Page
 
 
-    class CategoryDetailView(DetailView):
-        model = Category
-        context_object_name = 'category'
+    class SiteCategoryDetailView(DetailView):
+        model = SiteCategory
+        context_object_name = 'sitecategory'
 
         def get_context_data(self, **kwargs):
             ctx = super().get_context_data(**kwargs)
             if self.object:
                 # You chould shovel in some breadcrumb data
-                ctx['crumb_terms'] = self.object.api(self.object.id).ascendant_path()
+                ctx['crumb_nodes'] = self.object.api(self.object.id).ascendant_path()
 
-                # ...or a list of descendant Terms            
-                ctx['descendant_terms'] = self.object.api(self.object.id).descendants()
+                # ...or a list of descendant Nodes            
+                ctx['descendant_nodes'] = self.object.api(self.object.id).descendants()
 
                 # ...or element data from this category (this could use a related query if you have set up like that)
                 ctx['elements'] = Page.objects.filter(category=self.object)
             return ctx
 
-And a template, category_detail.py. For example,
+And a template, sitecategory_detail.py. For example,
 
     {% extends 'base.html' %}
     {% load taxonomy_displays %}
 
-    {% block title %}{{ category.name }}{% endblock %}
-    {% block body_class %}template-term{% endblock %}
+    {% block title %}{{ sitecategory.name }}{% endblock %}
+    {% block body_class %}template-sitecategory{% endblock %}
 
     {% block content %}
     <nav>
-        {% term_anchors crumb_terms class='breadcrumb' %}
+        {% node_anchors crumb_nodes url_prefix='sitecategories' class='breadcrumb' %}
     </nav>
-    <div class="termdetail-stock">
-        <header class="termdetail-header">
+    <div class="sitecategorydetail-stock">
+        <header class="sitecategorydetail-header">
             <div class="topbar">Topbar</div>
         </header>
 
-        <div class="termdetail-block">
-            <h1>{{ category.name }}</h1>
+        <div class="sitecategorydetail-block">
+            <h1>{{ sitecategory.name }}</h1>
             <h2>Sub-categories</h2>
-            {% term_anchors descendant_terms %}
+            {% node_anchors descendant_nodes %}
             <h2>Elements</h2>
             <p class="elements-text">{{ elements }}</p>
         </div>
     </div>
     {% endblock %}
 
-You'll want to do more than this. Underneath these pages are a category View, but nowadays people go berserk with them. Import your site logos, messaging, and navigation templates. Jamb the descendant Term data into menus. If you keep the elements on the page, make them into a list of image anchors. Load with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
+You'll want to do more than this. Underneath these pages is a category View, but nowadays people go berserk with them. Import your site logos, messaging and navigation templates. Jamb the descendant Node data into menus. If you keep the elements on the page, make them into a list of image anchors. Load with search bars, gadget images, manipulative headlines, and entrapment buttons. Time to express yourself.
 
 
 ### Category URLs
-Now need to wire in the view. Add a link in your URLs file,
+Now need to wire in the View. Add a link in your URLs file,
 
-    from taxonomy.views import CategoryDetailView
+    from sitecategory.views import SiteCategoryDetailView
 
     urlpatterns = [
-        path('category/<slug:slug>',  CategoryDetailView.as_view(), name='category_detail'), 
+        path('sitecategory/<slug:slug>',  SiteCategoryDetailView.as_view(), name='sitecategory_detail'), 
     ]
 
 
@@ -479,7 +488,7 @@ Then maybe a reverse URL on the Category model. That would give in Admin a 'View
 
     def get_absolute_url(self):
         from django.urls import reverse
-        return reverse('category_detail', kwargs={'slug': self.slug})
+        return reverse('sitecategory_detail', kwargs={'slug': self.slug})
 
 Done.
 
@@ -488,37 +497,36 @@ Done.
 It's not often you see a whole tree rendered. Think of those sitemap modules that are always written and never used. Still, you may have reason for printing the tree, and there are ways to do that.
 
 ### Flat Trees
-Trees made of term data plus a depth. As used in the selector boxes in admin.
+Trees made of node data plus a depth. As used in the selector boxes in admin.
 
 The tags and classes return HTML.
 
 #### Template tags
-There's a template tag that prints a depth tree in HTML. It uses a class FlatTreeRenderer but is easy to use, though operation is limited,
+There's a template tag that prints a depth tree in HTML. It is easy to use, though operation is limited,
 
-Use a view to send a tree (the usual depth-Term type),
+Use a view to send a tree (the usual depth-Node type),
 
-    from taxonomy.taxonomy import TaxonomyAPI
+    from sitecategory.models import SiteCategory
         ....
-        ctx['nav_bar'] = TaxonomyAPI(1).term(1).tree()
+        ctx['site_tree'] = SiteCategory.api.tree()
 
 Render that data in a template with this tag,
 
     {% load taxonomy_displays %}
         ...
-        {% flat_tree nav_bar %}
+        {% flat_tree site_tree %}
 
 
 #### FlatTreeRenderer
-The tag uses a class inlintemplates.FlatTreeRenderer, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
+The tag uses a class inline_templates.FlatTreeRenderer, which is more flexible than the tags. But, as it's a renderer, if you use that you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
 
 
 ### Stacked Trees
-Trees that display terms on top of each other, extending downwards like roots on a plant.
-
+Trees that display nodes on top of each other, extending downwards like roots on a plant.
 
 ![Stacked Tree](screenshots/stack_tree.png)
 
-These displays use a lot of visual space. Only a small taxonomy can be displayed on a display. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvantages,
+These displays use a lot of visual space. Only a small taxonomy can be displayed. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvantages,
 
 Pros
 - They are part of the webpage, so can be manipulated and searched like HTML
@@ -532,51 +540,53 @@ Cons
 
 
 #### Template tags
-There's a template tag that prints a tree in SVG. It uses StackTree but is easy to use, though operation is limited,
+There's a template tag that prints a tree in SVG. It is easy to use, though operation is limited.
 
-Use a view to send a tree (the usual depth-Term type),
+Use a view to send a tree (the usual depth-Node type),
 
-    from taxonomy.taxonomy import TaxonomyAPI
+    from sitecategory.models import SiteCategory
         ....
-        ctx['nav_bar'] = TaxonomyAPI(1).term(1).tree()
+        ctx['nav_tree'] = SiteCategory.api.tree()
 
 Then render that data with this tag,
 
     {% load taxonomy_displays %}
         ...
-        {% stacked_tree nav_bar 400 12 %}
+        {% stacked_tree nav_tree 400 12 %}
 
 The two parameters define a ''box' size into which to write titles. As this is SVG, the text scales. To make text smaller, try make the sizes larger (which then get scaled down further. Sorry, not worked out my optimal solution for this, but it's fun).
 
 
 #### StackTreeRenderer
-The tags use a class inline_templates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you need to render blocks inside the views, more or less bypassing the Django template engine. But maybe you don't mind.
+The tags use a class inline_templates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
 
     from django.utils.safestring import mark_safe
     from django.utils import html
-    from taxonomy import api
-    from taxonomy.inline_templates import TreeRender
+    from taxonomy.models import SiteCategoryNode
+    from taxonomy.inline_templates import StackTreeRenderer
 
-    def get_title(pk):
-        return html.escape(api.Taxonomy.term(pk).title)
     ...
-    # 1. Get the tree
-    api = TaxonomyAPI(1).term(1).tree()
-    t = api.flat_tree()
+        def get_title(node):
+            return html.escape(node.title)
+        
+        tr = StackTreeRenderer()
 
-    #3. Rend (needs a callback for data delivery into the template)
-    tree = tr.rend_default_horizontal(t, 200, 14, get_title)
-    
-    #4. Deliver into the template
-    article.body = mark_safe(tree)
-    return render(request, 'article.html', {'article': article})
+        # Get the tree
+        tree = SiteCategoryNode.api.tree()
+
+        # Rend (needs a callback for data delivery into the template)
+        tree = tr.rend_default(tree, 200, 14, get_title)
+        
+        # Deliver into a template
+        ctx['rendered_tree'] = mark_safe(tree)
+
 
 
 ## Implementation notes
 There are a few ways to implement a tree.
 
-### Creating a Root Term
-You can set any number of terms at base. If you would like a taxonomy with a singular base, start a single term which will be the 'root term'. Build from there e.g. ::
+### Creating a Root Node
+You can set any number of nodes at base. If you would like a taxonomy with a singular base, start a single node which will be the 'root'. Build from there e.g. ::
 
     base = 'car categories'
     - Cars
@@ -598,7 +608,8 @@ So far I have not found a way to test this app without Python ducktape. There ar
             'taxonomy.apps.TaxonomyConfig',
             ...
         ]
-Then you will find the tests in the sub-folder of 'ttests'.
+
+The tests are in the sub-folder of 'ttests'.
 
 
 

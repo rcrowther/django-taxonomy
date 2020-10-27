@@ -89,17 +89,17 @@ def to_kwargs(token, kwlumps):
 from django.utils import html
 from django.forms.utils import flatatt
 
-class TermAnchorNode(template.Node):
+class NodeAnchorNode(template.Node):
     #! not threadsafe
-    def __init__(self, term_list, url_id_field, url_stub, kwargs):
-        self.term_list = template.Variable(term_list)
+    def __init__(self, node_list, url_id_field, url_stub, kwargs):
+        self.node_list = template.Variable(node_list)
         self.url_id_field = url_id_field
         self.url_stub = url_stub
         self.kwargs = kwargs
 
     def render(self, context):
         b = ['<ul {} />'.format(flatatt(self.kwargs))]
-        for e in self.term_list.resolve(context):
+        for e in self.node_list.resolve(context):
             b.append('<li>')
             b.append('<a href="{0}{1}">{2}</a>'.format(
                 self.url_stub,
@@ -113,9 +113,9 @@ class TermAnchorNode(template.Node):
         return mark_safe(''.join(b))
 
 @register.tag        
-def term_anchors(parser, token):
+def node_anchors(parser, token):
     '''
-    Make anchors from a list of data (presumably Terms).
+    Make anchors from a list of data (presumably Nodes).
     Looks for a 'slug' and 'name' field
     Undocumented keyword arguments are rendered as HTML attributes.
 
@@ -133,10 +133,8 @@ def term_anchors(parser, token):
                 token.contents,
             ))
     tag_name = lumps[0]
-    term_list = lumps[1]
+    node_list = lumps[1]
     kwargs = to_kwargs(token, lumps[2:])
-    print('template')
-    print(str(kwargs))
     url_prefix = kwargs.pop('url_prefix', None) or '/category/'
     url_id_field = kwargs.pop('url_id_field', None) or 'slug'
-    return TermAnchorNode(term_list, url_id_field, url_prefix, kwargs)
+    return NodeAnchorNode(node_list, url_id_field, url_prefix, kwargs)

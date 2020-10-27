@@ -7,49 +7,49 @@ from django.core.exceptions import ObjectDoesNotExist
 NO_PARENT = -1
 BIG_DEPTH = 9999999999
 
-DepthTid = namedtuple('DepthTid', ['depth', 'tid'])
-DepthTerm = namedtuple('DepthTerm', ['depth', 'term'])
+DepthNid = namedtuple('DepthNid', ['depth', 'nid'])
+DepthNode = namedtuple('DepthNode', ['depth', 'cat'])
 
 
 
 class ChoiceIterator:
-    def __init__(self, depthTerms):
-        self.depthTerms = depthTerms
+    def __init__(self, depthNodes):
+        self.depthNodes = depthNodes
 
     def __iter__(self):
-        yield (NO_PARENT, 'None (root term)')
+        yield (NO_PARENT, 'None (root cat)')
         prev_depth = 99999999
-        for e in self.depthTerms:
+        for e in self.depthNodes:
             b = []
             depth = e.depth
             if (depth == 0):
-                title = e.term.name
+                title = e.cat.name
             elif (prev_depth <= depth):
-                title = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007└─\u2007' + e.term.name
+                title = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007└─\u2007' + e.cat.name
             else:
-                title = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007\u2007\u2007\u2007' + e.term.name
+                title = '\u2007\u2007\u2007\u2007' * (depth - 1) + '\u2007\u2007\u2007\u2007' + e.cat.name
             prev_depth = depth
-            yield (e.term.id, title)
+            yield (e.cat.id, title)
 
 
             
-class TermMethods:
+class NodeMethods:
     '''
     API for taxonomy models.
     '''
     def __init__(self, 
-        model_term, 
-        model_termparent, 
+        model_node, 
+        model_nodeparent, 
         cache, 
-        term_id
+        node_id
     ):
-        self.model_term = model_term 
-        self.model_termparent = model_termparent 
+        self.model_node = model_node 
+        self.model_nodeparent = model_nodeparent 
         self.cache = cache
-        self.id = term_id
+        self.id = node_id
 
-    def term(self):
-        return self.cache.term_map()[self.id]
+    def node(self):
+        return self.cache.node_map()[self.id]
         
     def depth(self):
         pos = self.cache.tree_locations().get(self.id)
@@ -65,50 +65,50 @@ class TermMethods:
 
     def id_children(self):
         # catch NO_PARENT
-        tid = self.id if (self.id > 0) else NO_PARENT
-        return self.cache.child_map()[tid]
+        nid = self.id if (self.id > 0) else NO_PARENT
+        return self.cache.child_map()[nid]
                                 
     def parent(self):
         '''
         return
-            Term. If NO_PARENT, None
+            Cat. If NO_PARENT, None
         '''
         pid = self.cache.parent_map()[self.id]
         if (pid == NO_PARENT):
             return None
         else:
-            return self.cache.term_map()[pid]
+            return self.cache.node_map()[pid]
 
     def children(self):
         '''
         return
-            [Term, ...]
+            [Cat, ...]
         '''
         # catch NO_PARENT
-        tid = self.id if (self.id != 0) else NO_PARENT
-        term_map = self.cache.term_map()
-        return [term_map[e] for e in self.cache.child_map()[tid]]
+        nid = self.id if (self.id != 0) else NO_PARENT
+        node_map = self.cache.node_map()
+        return [node_map[e] for e in self.cache.child_map()[nid]]
 
         
     def id_ascendants(self):
         '''
-        Term ascendants
+        Category ascendants
         The return is ordered as a single path.
         Includes the original id.
         return
             [id, ....]
         '''
         parent_map = self.cache.parent_map()
-        tid = parent_map[self.id]
+        nid = parent_map[self.id]
         b = []
-        while (tid != NO_PARENT):
-            b.append(tid)
-            tid = parent_map[tid]
+        while (nid != NO_PARENT):
+            b.append(nid)
+            nid = parent_map[nid]
         return b
         
     def id_descendants(self):
         '''
-        Term descendants
+        Category descendants
         The return is disorganised and does not structure for
         paths.
         Does not include the original id.
@@ -119,32 +119,32 @@ class TermMethods:
         stack = list.copy(child_map[self.id])
         b = []
         while (stack):
-            tid = stack.pop()
-            b.append(tid)
-            stack.extend(list.copy(child_map[tid]))
+            nid = stack.pop()
+            b.append(nid)
+            stack.extend(list.copy(child_map[nid]))
         return b
 
     def ascendants(self):
         '''
         Disorganised collection of all ascendants.
         '''
-        term_map = self.cache.term_map()
+        node_map = self.cache.node_map()
         ascendants = self.id_ascendants()
-        return [ term_map[tid] for tid in ascendants ]
+        return [ node_map[nid] for nid in ascendants ]
         
     def descendants(self):
         '''
         Disorganised collection of all descendants.
         '''
-        term_map = self.cache.term_map()
+        node_map = self.cache.node_map()
         descendants = self.id_descendants()
-        return [ term_map[tid] for tid in descendants ]
+        return [ node_map[nid] for nid in descendants ]
         
     def depth_id_ascendant_path(self):
         '''
         Tree ascscendants
         return
-            [DepthTid, ....], ordered from root to target term.
+            [DepthNid, ....], ordered from root to target category.
         '''
         pos = self.cache.tree_locations().get(self.id)
         tree = self.cache.ftree()
@@ -163,9 +163,9 @@ class TermMethods:
     def depth_id_descendant_paths(self):
         '''
         Tree descendant paths
-        Each path is a full route from the Term to a leaf,
+        Each path is a full route from the Category to a leaf,
         return
-            [[DepthTid, ...], ...], ordered
+            [[DepthNid, ...], ...], ordered
         '''
         tree = self.cache.ftree()
         l = len(tree)
@@ -183,13 +183,13 @@ class TermMethods:
             prev_depth = current_depth
             current_depth = e.depth
             if (current_depth <= base_depth):
-                # i.e. if not a descendant of the given tid
+                # i.e. if not a descendant of the given nid
                 break
             if (current_depth <= prev_depth):
                 # path finished, need to build new one
                 stack.append(list.copy(b))
                 # stem for the new path
-                # needs to be relative to tid depth, as the builder path
+                # needs to be relative to nid depth, as the builder path
                 # is also
                 b = b[:(current_depth - base_depth - 1)]
             b.append(e)
@@ -200,25 +200,25 @@ class TermMethods:
         
     def ascendant_path(self):
         '''
-        Path of Terms 
-            [Term, ....], ordered from root to target term.
+        Path of Categories 
+            [Cat, ....], ordered from root to target category.
         '''
-        term_map = self.cache.term_map()
+        node_map = self.cache.node_map()
         path = self.depth_id_ascendant_path()
-        return [ term_map[e.tid] for e in path ]
+        return [ node_map[e.nid] for e in path ]
     
     def descentant_paths(self):
-        term_map = self.cache.term_map()
+        node_map = self.cache.node_map()
         paths = self.depth_id_descendant_paths()
-        return [ [term_map[e.tid] for e in path] for path in paths]
+        return [ [node_map[e.nid] for e in path] for path in paths]
 
         
     def depth_id_tree(self, max_depth=None):
         '''
-        Tree of depths and term ids.
+        Tree of depths and category ids.
         
         return
-            [DepthTid, ...] depth from 9
+            [DepthNid, ...] depth from 9
         '''
         # depth is from main tree, not relative?
         tree = self.cache.ftree()
@@ -227,16 +227,16 @@ class TermMethods:
         e = tree[pos]
         base_depth = e.depth
         max_depth = max_depth if max_depth else BIG_DEPTH
-        b = [DepthTid(0, e.tid)]
+        b = [DepthNid(0, e.nid)]
         pos += 1        
         while (pos < l):
             e = tree[pos]
             reldepth = e.depth - base_depth
             if (reldepth < 1):
-                # i.e. if not a descendant of the given tid
+                # i.e. if not a descendant of the given nid
                 break
             if (reldepth < max_depth):
-                b.append(DepthTid(reldepth, e.tid)) 
+                b.append(DepthNid(reldepth, e.nid)) 
             pos += 1        
         return b      
 
@@ -245,86 +245,86 @@ class TermMethods:
         '''
         Tree
         return
-            [(depth, Term)]
+            [DepthNode(depth, Cat)]
         '''
-        term_map = self.cache.term_map()
+        node_map = self.cache.node_map()
         tree = self.depth_id_tree(max_depth)
-        return [DepthTerm(e.depth, term_map[e.tid]) for e in tree]
+        return [DepthNode(e.depth, node_map[e.nid]) for e in tree]
         
     def delete(self):
         '''
-        Delete the Term and contents.
-        Removes descendant terms and
+        Delete the Category and contents.
+        Removes descendant categories and
         attached elements.
         ''' 
-        descendant_tids = self.id_descendants()
-        # because base Term is not in the descendants
-        descendant_tids.append(self.id)
-        self.model_termparent.objects.filter(tid__in=descendant_tids).delete()
-        self.model_term.objects.filter(id__in=descendant_tids).delete()
+        descendant_nids = self.id_descendants()
+        # because base Category is not in the descendants
+        descendant_nids.append(self.id)
+        self.model_nodeparent.objects.filter(nid__in=descendant_nids).delete()
+        self.model_node.objects.filter(id__in=descendant_nids).delete()
         self.cache.clear()
 
     def reparent_choices(self):
         '''
-        choices for a a term parent update
+        choices for a category parent update
         These are limited comared to creation. Updating only allows 
-        attachment to terms that are not descendants, to avoid circular 
+        attachment to categories that are not descendants, to avoid circular 
         references.
         '''
         #? This feels like a shambles. but the slick thing would be
         # tree ids no descendants?
         descendants = self.id_descendants()
-        # add in the seed term_id. Don't want to parent on ourself
+        # add in the seed node_id. Don't want to parent on ourself
         descendants.append(self.id)
         # get them all. seems easier right now if sloooooow.
-        non_descendant_id_tree = (e for e in self.cache.ftree() if (not(e.tid in descendants)))
-        term_map = self.cache.term_map()
-        return list(ChoiceIterator([DepthTerm(e.depth, term_map[e.tid]) for e in non_descendant_id_tree]))
+        non_descendant_id_tree = (e for e in self.cache.ftree() if (not(e.nid in descendants)))
+        node_map = self.cache.node_map()
+        return list(ChoiceIterator([DepthNode(e.depth, node_map[e.nid]) for e in non_descendant_id_tree]))
 
         
         
         
-class TaxonomyAPI:
+class NodeTreeAPI:
     '''
     API for taxonomy models.
     '''
     def __init__(self, 
-        model_term, 
-        model_termparent, 
+        model_node, 
+        model_nodeparent, 
     ):
-        self.model_term = model_term 
-        self.model_termparent = model_termparent 
+        self.model_node = model_node 
+        self.model_nodeparent = model_nodeparent 
     
         # cache
         self._parents = {}
         self._children = {}
-        self._terms = {}
+        self._nodes = {}
         self._ftree = None
         self._tree_locations = None
 
     def generate_base_data(self):
         from django.db import connection
-        terms = {}
+        nodes = {}
         parents = {}
         children = {}
-        PID_Weighted_SQL = "SELECT t.*, tp.pid FROM {} tp INNER JOIN {} t ON tp.tid = t.id ORDER BY t.weight".format(
-            self.model_termparent._meta.db_table,
-            self.model_term._meta.db_table,
+        PID_Weighted_SQL = "SELECT t.*, tp.pid FROM {} tp INNER JOIN {} t ON tp.nid = t.id ORDER BY t.weight".format(
+            self.model_nodeparent._meta.db_table,
+            self.model_node._meta.db_table,
             )
         with connection.cursor() as cursor:
             cursor.execute(PID_Weighted_SQL)
             for r in cursor.fetchall():
-                tid = r[0]
-                terms[tid] = self.model_term(*r[:-1])
-                parents[tid] = r[-1]
+                nid = r[0]
+                nodes[nid] = self.model_node(*r[:-1])
+                parents[nid] = r[-1]
                 # Only set up children for later population.
-                # Setup here ensures every tid is accounted for.
-                children[tid] = []
+                # Setup here ensures every nid is accounted for.
+                children[nid] = []
         # and ensure NO_PARENTS entry
         children[NO_PARENT] = []
-        for (tid, pid) in parents.items():
-            children[pid].append(tid)
-        self._terms = terms
+        for (nid, pid) in parents.items():
+            children[pid].append(nid)
+        self._nodes = nodes
         self._parents = parents
         self._children = children
 
@@ -339,15 +339,15 @@ class TaxonomyAPI:
             self.generate_base_data()
         return self._parents 
 
-    def term_map(self):
+    def node_map(self):
         if (not self._children):
             self.generate_base_data()
-        return self._terms
+        return self._nodes
     
     def _generate_tree(self):
         '''
         return
-            [DepthTid] Tree depths are from 0...
+            [DepthNid] Tree depths are from 0...
         '''
         child_map = self.child_map() 
         stack = [iter(child_map[NO_PARENT])]
@@ -357,12 +357,12 @@ class TaxonomyAPI:
             it = stack.pop()
             while(True):
                 try:
-                    tid = it.__next__()
+                    nid = it.__next__()
                 except StopIteration:
                     # exhausted. Pop a iter at a previous depth
                     break
-                yield DepthTid(depth, tid)
-                child_ids = child_map[tid]
+                yield DepthNid(depth, nid)
+                child_ids = child_map[nid]
                 if (child_ids):
                     # append current iter, will return after processing children
                     stack.append(it)
@@ -374,7 +374,7 @@ class TaxonomyAPI:
         '''
         The tree for this taxonomy
         return
-              [DepthTid, ...], ordered
+              [DepthNid, ...], ordered
         '''
         if (self._ftree is None):
             # list, because we need to run the generator, or it will
@@ -387,7 +387,7 @@ class TaxonomyAPI:
 
     def tree_locations(self):
         if (self._tree_locations is None):
-            self._tree_locations = {e.tid : idx for idx, e in enumerate(self.ftree())}
+            self._tree_locations = {e.nid : idx for idx, e in enumerate(self.ftree())}
         return self._tree_locations
                  
     def clear(self):
@@ -396,44 +396,44 @@ class TaxonomyAPI:
         '''
         self._parents = {}
         self._children = {}
-        self._terms = {}
+        self._nodes = {}
         self._ftree = None
         self._tree_locations = None
         
     def __call__(self, *args, **kwargs):
         if args:
-            term_id = args[0]
+            node_id = args[0]
         else:
-            term_id = self.model_term.objects.get(**kwargs).id
-        return TermMethods( 
-            self.model_term, 
-            self.model_termparent, 
+            node_id = self.model_node.objects.get(**kwargs).id
+        return NodeMethods( 
+            self.model_node, 
+            self.model_nodeparent, 
             self, 
-            term_id
+            node_id
         )
 
     def save(self, new_parent_id, obj):
         '''
-        Save a term.
-        Add necessary parentage on new term. Term parent is not checked 
+        Save a category.
+        Add necessary parentage on new category. Category parent is not checked 
         against taxonomy_id.
         '''
-        self.model_term.save(obj)
+        self.model_node.save(obj)
         try:
-            o = self.model_termparent.objects.get(tid=obj.id)
+            o = self.model_nodeparent.objects.get(nid=obj.id)
             o.pid = new_parent_id
         except ObjectDoesNotExist:
-            o = self.model_termparent(pid=new_parent_id, tid=obj.id)
-        self.model_termparent.save(o)
+            o = self.model_nodeparent(pid=new_parent_id, nid=obj.id)
+        self.model_nodeparent.save(o)
         self.clear()
 
     def delete(self):
         '''
         Delete the tree.
-        Includes terms, and parentage.
+        Includes categories, and parentage.
         '''
-        self.model_termparent.objects.all().delete()
-        self.model_term.objects.all().delete()
+        self.model_nodeparent.objects.all().delete()
+        self.model_node.objects.all().delete()
         self.clear()
 
     def depth_id_tree(self, max_depth=None):
@@ -446,13 +446,13 @@ class TaxonomyAPI:
         '''
         Tree
         return
-            [(depth, Term)]
+            [(depth, Cat)]
         '''
-        term_map = self.term_map()
-        return [DepthTerm(e.depth, term_map[e.tid]) for e in self.depth_id_tree(max_depth)]
+        node_map = self.node_map()
+        return [DepthNode(e.depth, node_map[e.nid]) for e in self.depth_id_tree(max_depth)]
                 
     def initial_choices(self):
         '''
-        Choices for parenting a term on creation
+        Choices for parenting a category on creation
         '''
         return list(ChoiceIterator((e for e in self.tree())))

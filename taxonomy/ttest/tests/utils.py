@@ -1,4 +1,4 @@
-from ttest.models import Term, TermParent
+from ttest.models import Cat, CatParent
 
 
 def build_taxonomy(count):
@@ -8,13 +8,13 @@ def build_taxonomy(count):
     x = 1
     while (x <= count):
         xstr = str(x)
-        obj = Term(
+        obj = Cat(
             name='term' + xstr, 
             slug='term-' + xstr, 
             description='desc' + xstr, 
             weight=3
             )
-        Term.api.save(TermParent.NO_PARENT, obj)
+        Cat.api.save(CatParent.NO_PARENT, obj)
         x += 1
 
 def build_parented_taxonomy(count):
@@ -22,15 +22,15 @@ def build_parented_taxonomy(count):
     Make count Terms, parented in chain
     '''
     x = 1
-    parent = TermParent.NO_PARENT
+    parent = CatParent.NO_PARENT
     while (x <= count):
         xstr = str(x)
-        obj = Term(
+        obj = Cat(
             name='term' + xstr, 
             slug='term-' + xstr, 
             description='desc' + xstr, 
             weight=3
             )
-        Term.api.save(parent, obj)
+        Cat.api.save(parent, obj)
         parent = obj.id
         x += 1

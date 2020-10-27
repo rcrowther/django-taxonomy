@@ -5,15 +5,16 @@ x Generalise breadcrumbs to term_list, term_anchor_list
 == Models
 x Abstract models
 x Subclassing not complete
-Change to name 'category'
+Change to name 'cat'
 x Check subclassing
 x killing related managers
-remove concrete classes
+x remove concrete classes
 
 == API
 x deletes to be enabled
 Reparent_choices is a mess
-Multiple models test
+Test Multiple models
+Fix those constants somehow.
 
 == Admin
 x indent title column rename
@@ -24,8 +25,6 @@ Auto-slug
 == Admin forms
 Optional categorisation
 Term parents displaying the null option badly as '-1'
-Term element, Term parents - no verification term exists.
-
 Humm. Verification (for what?) not hard to add.
 
 
@@ -43,4 +42,5 @@ Can make relative sizing?
 
 == Other
 Auto-slug code
+Tidy print()
 x Do builtins work in packaging?

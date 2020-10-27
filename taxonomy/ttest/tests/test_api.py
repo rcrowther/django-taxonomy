@@ -1,6 +1,6 @@
 from django.test import TestCase
-from taxonomy.api import DepthTid
-from ttest.models import Term, TermParent
+from taxonomy.api import DepthNid
+from ttest.models import Cat, CatParent
 from . import utils
 
 
@@ -27,9 +27,9 @@ class TestAPIBase(TestCase):
         xe = self.api.parent_map()
         self.assertEqual(len(xe), 8)  
              
-    def test_term_map(self):
-        tids = self.api.term_map()
-        self.assertEqual(len(tids), 8)
+    def test_node_map(self):
+        nids = self.api.node_map()
+        self.assertEqual(len(nids), 8)
 
     def test_ftree(self):
         tree = self.api.ftree()
@@ -37,7 +37,7 @@ class TestAPIBase(TestCase):
 
     def test_ftree_type(self):
         tree = self.api.ftree()
-        self.assertIs(tree[0].__class__, DepthTid)
+        self.assertIs(tree[0].__class__, DepthNid)
 
     def test_tree_locations(self):
         locs = self.api.tree_locations()
@@ -59,7 +59,7 @@ class TestAPIMethods(TestCase):
         # hidden vars avoid auto-rebuilds
         self.assertEqual(len(self.api._parents), 0)       
         self.assertEqual(len(self.api._children), 0)       
-        self.assertEqual(len(self.api._terms), 0)       
+        self.assertEqual(len(self.api._nodes), 0)       
         self.assertIs(self.api._ftree, None)
         self.assertIs(self.api._tree_locations, None)
 
@@ -79,7 +79,7 @@ class TestAPIMethods(TestCase):
                 
                 
                 
-class TestAPITermMethods(TestCase):
+class TestAPINodeMethods(TestCase):
     # '''
     # Test API cache
     # '''
@@ -116,7 +116,7 @@ class TestAPITermMethods(TestCase):
     #! Can not run mutations in this test case
     # def test_delete(self):
         # self.api.delete()
-        # self.assertEqual(len(Term.api.term_map()), 2)
+        # self.assertEqual(len(Term.api.node_map()), 2)
     # def initial_choices(self):
     # def reparent_choices(self):
     # def depth_id_tree(self, max_depth=None):

@@ -1,25 +1,25 @@
 from django.contrib import admin
-from taxonomy.forms import TermFormPartial
+from taxonomy.forms import NodeFormPartial
 
 
-class TermAdmin(admin.ModelAdmin):
-    #form = forms.ModelForm
-    form = TermFormPartial
+
+class NodeAdmin(admin.ModelAdmin):
+    form = NodeFormPartial
     change_form_template = 'taxonomy/term_change_form.html'
     change_list_template = 'taxonomy/term_change_list.html'
 
-    list_display = ('indented_term_titles',)
+    list_display = ('indented_node_titles',)
     search_fields = ['name']
 
         
-    def indented_term_titles(self, obj):
+    def indented_node_titles(self, obj):
         depth = obj.api(obj.id).depth()
         if (depth > 0):
             return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007┍─\u2007" + obj.name
         else:
             return  obj.name
             
-    indented_term_titles.short_description = 'Name'
+    indented_node_titles.short_description = 'Name'
     
 
     def save_model(self, request, obj, form, change):
@@ -37,6 +37,5 @@ class TermAdmin(admin.ModelAdmin):
         # usually the API would be called, but if not, this uses the 
         # API too.
         #? More efficient with dedicated api.delete?
-        print("Admin queryset delete...")
         for term in queryset:
             self.delete_model(request, term)

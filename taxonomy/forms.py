@@ -1,14 +1,14 @@
 from django import forms
-from taxonomy.models import TermParentBase
+from taxonomy.models import NodeParentBase
 
 
 
-class TermFormPartial(forms.ModelForm):
+class NodeFormPartial(forms.ModelForm):
     '''
-    Handle a Term and parenting. 
+    Handle a Category and parenting. 
     It's called Partial because, like a ModelForm, it will not 
     instanciate without a Meta declaration. This could be provided 
-    for example, by declaraation, or through a ModelAdmin.
+    for example, by declaration, or through a ModelAdmin.
     '''    
     #! _errors
     # 1. It may be a modelform, but it has extra field for parent. This 
@@ -25,8 +25,8 @@ class TermFormPartial(forms.ModelForm):
             
         # 4. dispatch between 'new' and 'change' forms
         # On either branch, followed by,
-        # 6. Add choices to 'parents'
-        # 7. Set a value on 'parents' (via. 'initial') to select values
+        # 5. Add choices to 'parents'
+        # 6. Set a value on 'parents' (via. 'initial') to select values
         instance = kwargs.get('instance')
         if (instance):
             # probably an 'update'
@@ -40,14 +40,7 @@ class TermFormPartial(forms.ModelForm):
             # setup parent choices
             self.declared_fields['parent'].choices = self._meta.model.api.initial_choices()
             # ...then 'select' current parent
-            kwargs['initial']['parent'] = TermParentBase.NO_PARENT
+            kwargs['initial']['parent'] = NodeParentBase.NO_PARENT
 
         super().__init__(*args, **kwargs)
-        
-        
-    #class Meta:
-        #model = Term
-        #exclude = []
-    #    pass
-
         

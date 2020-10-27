@@ -1,10 +1,10 @@
 from django.db import models
 from django.core import checks
-from taxonomy.api import TaxonomyAPI
+from taxonomy.api import NodeTreeAPI
 
 
 
-class TermBase(models.Model):
+class NodeBase(models.Model):
 
     # A name field is required, or it creates some admin difficulties.
     # Not unique. The id is unique.
@@ -27,7 +27,7 @@ class TermBase(models.Model):
     # for mainenance.
         
     def __repr__(self):
-        return "Term(id:{}, name:{}, weight:{})".format(
+        return "Node(id:{}, name:{}, weight:{})".format(
             self.id,
             self.name,
             self.weight,
@@ -51,10 +51,10 @@ class TermBase(models.Model):
                         id='taxonomy.E001',
                     )
                 )
-            if (not(isinstance(cls.api, TaxonomyAPI))):
+            if (not(isinstance(cls.api, NodeTreeAPI))):
                 errors.append(
                     checks.Error(
-                        "'{}' attribute 'api' must be a subclass of TaxonomyAPI.".format(
+                        "'{}' attribute 'api' must be a subclass of NodeTreeAPI.".format(
                             cls.__name__,
                         ),
                         id='taxonomy.E002',
@@ -66,24 +66,17 @@ class TermBase(models.Model):
         abstract = True
 
         
+        
 # Subclasses are unalatered, but a new one needed for every taxonomy.                
-class TermParentBase(models.Model):
+class NodeParentBase(models.Model):
     '''
     Parent terms to other terms
     '''
-    # Sadly, the autoincrement is dependent on underlying DB 
-    # implementation. It would be nice to guarentee zero, but the only
-    # way to do this is by an even more awkward method of migration.
-    # So -1 sentinel it is, for unparented Terms.
-    #- signal to unparent, or as unparented.
-    # handy here and there
-    UNPARENT = -2
-    
     # Sentinel for 'pid' if unparented.
     # Now that would beggar belief, an auto-increment that allows -1...
     NO_PARENT = -1
     
-    tid = models.IntegerField(
+    nid = models.IntegerField(
         "term id",
         db_index=True,
         help_text="Category parented by another category.",
@@ -99,15 +92,15 @@ class TermParentBase(models.Model):
     )
     
     def __repr__(self):
-        return  "TermParent(tid:{0}, pid:{1})".format(
-            self.tid,
+        return  "NodeParent(nid:{0}, pid:{1})".format(
+            self.nid,
             self.pid
         ) 
         
     def __str__(self):
-        return "TermParent({}-{})".format(
-            self.tid, 
-            self.pid if self.pid != TermParent.NO_PARENT else 'NO_PARENT', 
+        return "NodeParent({}-{})".format(
+            self.nid, 
+            self.pid if self.pid != CatParent.NO_PARENT else 'NO_PARENT', 
         )
 
     class Meta:
