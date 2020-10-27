@@ -7,7 +7,7 @@ from taxonomy.models import NodeBase, NodeParentBase
 
 
 
-class Cat(NodeBase):
+class TestCat(NodeBase):
 
     # Not unique. Terms may be in different taxonomies. They may
     # be duplicated at different places in a hierarchy e.g. 'sports>news'
@@ -39,12 +39,12 @@ class Cat(NodeBase):
 
 
 
-class CatParent(NodeParentBase):
+class TestCatParent(NodeParentBase):
         pass
                 
 
 # Always this format, but a new one needed for every taxonomy.
-Cat.api = NodeTreeAPI(
-            Term, 
-            CatParent, 
+TestCat.api = NodeTreeAPI(
+            TestCat, 
+            TestCatParent, 
          ) 

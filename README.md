@@ -609,12 +609,12 @@ So far I have not found a way to test this app without Python ducktape. There ar
             ...
         ]
 
-The tests are in the sub-folder of 'ttests'.
+...and migrate. The tests are in the sub-folder of 'ttests'.
 
 
 
 ## EndNote
-### The evironment
+### The environment
 The Django system presents substantial difficulties to anyone implementing structures like this. There is the issue of the ORM and foreign keys, about which you can say nothing, or write a book. Form-building seems flexible, but you can't pin partials together, nor integrate with Admin. And admin may be customisable, but it's a blob of code and can not be extended. The only functionality on the coder's side is Django's model building, and Python hackability. It's clear other projects have wrestled with these issues. I'm just working as I can to make something usable.
 
 

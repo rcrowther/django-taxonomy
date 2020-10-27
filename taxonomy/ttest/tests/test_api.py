@@ -1,6 +1,6 @@
 from django.test import TestCase
 from taxonomy.api import DepthNid
-from ttest.models import Cat, CatParent
+from ttest.models import TestCat, TestCatParent
 from . import utils
 
 
@@ -16,7 +16,7 @@ class TestAPIBase(TestCase):
         utils.build_taxonomy(8)
         
     def setUp(self):
-        self.api = Term.api
+        self.api = TestCat.api
         
     def test_child_map(self):
         xe = self.api.child_map()
@@ -52,7 +52,7 @@ class TestAPIMethods(TestCase):
         utils.build_parented_taxonomy(8)
         
     def setUp(self):
-        self.api = Term.api
+        self.api = TestCat.api
         
     def test_clear(self):
         self.api.clear()
@@ -89,11 +89,11 @@ class TestAPINodeMethods(TestCase):
         utils.build_parented_taxonomy(8)
         
     def setUp(self):
-        self.api = Term.api(3)
+        self.api = TestCat.api(3)
 
     def test_term(self):
-        t = self.api.term()
-        self.assertIs(t.__class__, Term)
+        t = self.api.node()
+        self.assertIs(t.__class__, TestCat)
         
     def test_depth(self):
         # depth is from 0
@@ -116,7 +116,7 @@ class TestAPINodeMethods(TestCase):
     #! Can not run mutations in this test case
     # def test_delete(self):
         # self.api.delete()
-        # self.assertEqual(len(Term.api.node_map()), 2)
+        # self.assertEqual(len(TestCat.api.node_map()), 2)
     # def initial_choices(self):
     # def reparent_choices(self):
     # def depth_id_tree(self, max_depth=None):
