@@ -1,5 +1,5 @@
 from django.test import TestCase
-
+from taxonomy import NO_PARENT
 from ttest.models import TestCat, TestCatParent
 
 
@@ -16,7 +16,7 @@ class TestModels(TestCase):
             slug="test-1",
             description='test1',
         )
-        TestCat.api.save(TestCatParent.NO_PARENT, obj)
+        TestCat.api.save(NO_PARENT, obj)
        
     # Think this is the only basic test?
     def test_parentage(self):

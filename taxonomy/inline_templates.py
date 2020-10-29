@@ -1,13 +1,12 @@
-## code-level templates
-# (Mr. Lazy)
-
+import math
 from django.utils.safestring import mark_safe
 from django.utils import html
 from django.forms.utils import flatatt
-import math
+from taxonomy import BIG_DEPTH
 
 
 
+## code-level templates
 class AnchorNodeListRenderer():
     url_prefix ='/category/'
 
@@ -57,7 +56,7 @@ class FlatTreeRenderer():
             [(depth, Term)]
         '''
         b = ['<ul class="{}">'.format(klass)]
-        prev_depth = 99999999
+        prev_depth = BIG_DEPTH
 
         for depth, data in tree:
             rend_data = self.data_template(self.get_context(data)) 

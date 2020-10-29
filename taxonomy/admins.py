@@ -15,7 +15,7 @@ class NodeAdmin(admin.ModelAdmin):
     def indented_node_titles(self, obj):
         depth = obj.api(obj.id).depth()
         if (depth > 0):
-            return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007┍─\u2007" + obj.name
+            return '\u2007\u2007\u2007\u2007' * (depth - 1) + "\u2007●\u2007\u2007" + obj.name            
         else:
             return  obj.name
             

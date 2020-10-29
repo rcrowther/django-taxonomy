@@ -134,6 +134,8 @@ Then migrate.
 
 
 ## Admin
+NB: Even though the data is available, I have not found a way to push into Admin, which is obsessed with queryset machinery. Hence the funny bullet display.
+ 
 You need a special admin found in 'taxonomy.admins'. The admin adds a 'parent' field to Node forms, and routes CRUD operations through the API.
 
 As usual, the admin needs a 'fields' attribute. One comment here, if you do not have a 'fields' statement, the 'parent' field is placed at the bottom of the form. This is probably not what you want. Also, you will want the 'parent' field to show in most cases, so put 'parent' in the 'fields' list. 
@@ -241,7 +243,9 @@ One point worth knowing is that, since these taxonomies are single-parent, there
 ### Accessing taxonomy data
 You can use the API in the shell, but also jamb it statically into a webpage. For example, here are the root categories in a tree, 
 
-            ctx['root_elements'] = SiteCategory.api(NO_PARENT).children()
+    from taxonomy import NO_PARENT
+
+        ctx['root_elements'] = SiteCategory.api(NO_PARENT).children()
 
 pushed into a navbar with some CSS,
 
@@ -280,7 +284,7 @@ It's possible you may want to leave an object without a parent. That could mean 
             on_delete=models.SET_DEFAULT,
         )
 
-UNCATEGORIZED is a sentinel value from the app. I'm not fond of null in DB's, but you could use that if you want.
+UNCATEGORIZED is a sentinel value from the app. I'm not fond of null in DB's, but you can use null if you want.
 
 This model will deliver the usual Django display in Admin, a ModelChoiceField, which is ok. If you have many Nodes you may want to try [autocomplete](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.autocomplete_fields) or [raw id](https://docs.djangoproject.com/en/3.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.raw_id_fields) widgets.
 
@@ -370,11 +374,11 @@ Not all taxonomies will need URLs. Taxonomies can be used for internal organisat
 
 
 ### Planning
-All kinds of fancy pages nowadays, but a classic web navigation page would be a list category links, or a tree of objects. Most sites add selected lists of attached objects. But if you have a search page enabled on your site, maybe you would want to go to that? That's a different kind of URL.
+All kinds of fancy pages nowadays, but a classic web navigation page for a directory would be a list of sub-directories and files. Navigate to a category on most sites and you will find lists of attached elements. But if you have a search page enabled on your site, maybe you would want to go to that? That's a different kind of URL.
 
-If you want node/category pages, you need to decide how your URLs will look. Will object URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
+If you want pages for node/categories, you need to decide how your URLs will look. Will element URLs include a subject? There is advice [they should not](https://www.w3.org/Provider/Style/URI). But then the URL is not so hackable, which is also a case.
 
-I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains objects at their Django URLs (e.g. host/page/xxx) but provides breadcrumbs and category listings.
+I've not worked on a full URL solution. Here is a 'distracted' URL solution, that retains elements at their Django URLs (e.g. host/page/xxx) but provides breadcrumbs and category listings.
 
 Anyway, lets start with...
 
@@ -498,6 +502,8 @@ It's not often you see a whole tree rendered. Think of those sitemap modules tha
 
 ### Flat Trees
 Trees made of node data plus a depth. As used in the selector boxes in admin.
+
+![Flat Tree](screenshots/anchor_flat_tree.png)
 
 The tags and classes return HTML.
 

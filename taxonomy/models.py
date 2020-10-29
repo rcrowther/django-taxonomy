@@ -1,7 +1,7 @@
 from django.db import models
 from django.core import checks
 from taxonomy.api import NodeTreeAPI
-
+from taxonomy import NO_PARENT
 
 
 class NodeBase(models.Model):
@@ -74,7 +74,7 @@ class NodeParentBase(models.Model):
     '''
     # Sentinel for 'pid' if unparented.
     # Now that would beggar belief, an auto-increment that allows -1...
-    NO_PARENT = -1
+    #NO_PARENT = -1
     
     nid = models.IntegerField(
         "term id",
@@ -87,7 +87,7 @@ class NodeParentBase(models.Model):
         "parent term id",
         db_index=True,
         blank=True,
-        default= NO_PARENT,
+        default=NO_PARENT,
         help_text="Category parenting another category.",
     )
     
@@ -100,7 +100,7 @@ class NodeParentBase(models.Model):
     def __str__(self):
         return "NodeParent({}-{})".format(
             self.nid, 
-            self.pid if self.pid != CatParent.NO_PARENT else 'NO_PARENT', 
+            self.pid if self.pid != NO_PARENT else 'NO_PARENT', 
         )
 
     class Meta:

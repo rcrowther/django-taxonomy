@@ -1,11 +1,8 @@
 from collections import namedtuple
 from django.core.exceptions import ObjectDoesNotExist
+from taxonomy import NO_PARENT, BIG_DEPTH
 
- 
 
-# constants
-NO_PARENT = -1
-BIG_DEPTH = 9999999999
 
 DepthNid = namedtuple('DepthNid', ['depth', 'nid'])
 DepthNode = namedtuple('DepthNode', ['depth', 'cat'])
@@ -18,7 +15,7 @@ class ChoiceIterator:
 
     def __iter__(self):
         yield (NO_PARENT, 'None (root cat)')
-        prev_depth = 99999999
+        prev_depth = BIG_DEPTH
         for e in self.depthNodes:
             b = []
             depth = e.depth
