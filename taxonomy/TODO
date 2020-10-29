@@ -32,13 +32,14 @@ Humm. Verification (for what?) not hard to add.
 Unpublishing
 
 == Rendering
-Why are displays sometimes hanging?
+== Bugs
+Why does treelocations sometimes return None? After deletes?
 
 == SVGs
 Can make relative sizing?
 
 == Tests
-!!!
+x partial
 
 == Other
 Auto-slug code

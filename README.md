@@ -29,16 +29,16 @@ Con
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
 
 This app has only one (non)feature over the heavyweights. It is simple. 
-It has no dependencies. It has only 500 (or near) lines of core code. It has a bone-simple SQL layout, so simple you can fix it with 'dbshell'. So if you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
+It has no dependencies. It has only 500 (or near) lines of core code. It has a bone-simple SQL layout, you can fix it with 'dbshell'. If you don't need the weight, but want to catalogue some uploads, or gather pages on a website, you may prefer this.
+
+I know it's unprofessional to think of performance, but I tried creating 30,000 categories on an old laptop with an SQLite DB. Slow changes but reading fast. Of course, the displays fell to pieces.
 
 ## Overview
-The app is called Taxonomy, because that's what it is, a vocabulary of terms. You might think of that as a tree of categories.
-
-However, I've used the common Python/Django word 'Node' for the category items.
+The app is called Taxonomy, because that's what it is, a vocabulary of terms. You might think of that as a tree of categories. However, I've used the common Python/Django word 'Node' for the categories.
 
 To make a tree of categories, Taxonomy has a model 'NodeBase'. You subclass 'NodeBase' to make a new Model. One Model/database table = one tree. 
 
-'NodeBase' can be extended with whatever data you want. So your Node (category) can be customised with descriptions, SEO material, external reference numbers, whatever you need to reference and present your material.
+'NodeBase' can be extended with whatever data you want. So a Node (category) can be customised with descriptions, SEO material, external reference numbers, whatever you need to reference and present your material.
 
 'Node' is not a good name for end users. Whenever end users are concerned, I'd use the word 'category'. Even in the application help I use the word 'Category'.
 
@@ -518,7 +518,28 @@ Render that data in a template with this tag,
 
 
 #### FlatTreeRenderer
-The tag uses a class inline_templates.FlatTreeRenderer, which is more flexible than the tags. But, as it's a renderer, if you use that you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
+The tag uses a class inline_templates.FlatTreeRenderer, which is more flexible than the tags. Because it's a renderer, if you use it directly you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
+
+
+#### Rendering Anchors
+A FlatTree can be rendered with anchors. There is no templatetag, so you will need to render in a View. Default setup assumes there is a 'slug' field on the node, and that the url_prefix is '/category/' e.g.
+
+
+    from django.utils.safestring import mark_safe
+    from taxonomy.models import SiteCategoryNode
+    from taxonomy.inline_templates import AnchorFlatTreeRenderer
+
+
+
+    class CategoryDetailView(DetailView):
+        ...
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+            tree = Category.api.tree()
+            tr=AnchorFlatTreeRenderer()
+            rend_tree = tr.rend(tree)
+            ctx['nav_tree'] = mark_safe(rend_tree)
+            return ctx
 
 
 ### Stacked Trees
@@ -526,18 +547,14 @@ Trees that display nodes on top of each other, extending downwards like roots on
 
 ![Stacked Tree](screenshots/stack_tree.png)
 
-These displays use a lot of visual space. Only a small taxonomy can be displayed. And, as you can see, the classes and tags return SVG graphics. SVG graphics have advantages and disadvantages,
+These displays use a lot of visual space. Only a small taxonomy can be displayed. And, as you can see, the classes and tags return SVG graphics. Notes,
 
-Pros
-- They are part of the webpage, so can be manipulated and searched like HTML
-- They react structurally to DOM commands, such as zoom.
-- they compress very small
-- They have a full range of graphic manipulation available, can be customised with colour, sizing, and effects such as blur (expensive)
+- The output image should auto-size into any webpage container it is placed in. Including browser resizing.
+- It is an image. Text size is fixed, and will not respond to page zoom 
+- After generation, the web delivery load is very low...
+- ...but the SVG image puts extra load on the receiving browser
 
-Cons
-- They are part of the webpage, so add extra load to browser DOM manipulation
-- They work with an absolute internal sizing. Font sizes are inherited, but no inheritance of CSS layout.
-
+The render works by writing node data into boxes, which are laid out according to node hierarchy. To make text smaller, try make the 'x' size larger (which scales text down).
 
 #### Template tags
 There's a template tag that prints a tree in SVG. It is easy to use, though operation is limited.
@@ -552,33 +569,70 @@ Then render that data with this tag,
 
     {% load taxonomy_displays %}
         ...
-        {% stacked_tree nav_tree 400 12 %}
+        {% stacked_tree nav_tree 300 12 %}
 
-The two parameters define a ''box' size into which to write titles. As this is SVG, the text scales. To make text smaller, try make the sizes larger (which then get scaled down further. Sorry, not worked out my optimal solution for this, but it's fun).
+The parameters are for width and height, you probably need to tweak them.
 
 
 #### StackTreeRenderer
-The tags use a class inline_templates.Stacktree, which is more flexible than the tags. But, as it's a renderer, if you use that you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
+The tags use a class inline_templates.Stacktree, which is more flexible than the tags. Because it's a renderer, if you use it directly you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind. This is naive, to be explicit,
 
     from django.utils.safestring import mark_safe
-    from django.utils import html
     from taxonomy.models import SiteCategoryNode
     from taxonomy.inline_templates import StackTreeRenderer
 
+
+
+    # lightly customise the renderer to colour the beam and stem marks
+    class PrettyStackTreeRenderer(StackTreeRenderer):
+       beam_style = 'stroke:darkseagreen;stroke-width:4;stroke-linecap:square;'
+       stem_style = 'stroke:darkseagreen;stroke-width:2;'
+
+
+
+    class CategoryDetailView(DetailView):
+        ...
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+
+            # Get a tree
+            tree = SiteCategoryNode.api.tree()
+
+            # Rend
+            tr = PrettyStackTreeRenderer()
+            rend_tree = tr.rend_default(tree, 300, 12)
+
+            # Deliver into a template
+            ctx['cat_tree'] = mark_safe(rend_tree)
+            return ctx
+
+In the template,
+
+            {{ cat_tree }}
+
+To modify further, look at code. 'text_style', 'beam_style' and 'stem_style' can be overloaded (different colors/widths/cap-style). Use 'rend', instead of 'default_rend' to modify gaps and distances. Different data can printed by overloading 'get_context' and 'data_template'.
+
+#### Rendering Anchors
+Inline SVG is live DOM code. So a StackTree can be rendered with anchors (!). There is no templatetag, because this implies Java levels of insanity, so you will need to render in a View. Default setup assumes there is a 'slug' field on the node, and that the url_prefix is '/category/',
+
+    from taxonomy.inline_templates import AnchorStackTreeRenderer
+
     ...
-        def get_title(node):
-            return html.escape(node.title)
-        
-        tr = StackTreeRenderer()
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
 
-        # Get the tree
-        tree = SiteCategoryNode.api.tree()
+            # Get a tree
+            tree = SiteCategoryNode.api.tree()
 
-        # Rend (needs a callback for data delivery into the template)
-        tree = tr.rend_default(tree, 200, 14, get_title)
-        
-        # Deliver into a template
-        ctx['rendered_tree'] = mark_safe(tree)
+            # Rend
+            tr = AnchorStackTreeRenderer()
+            rend_tree = tr.rend_default(tree, 300, 12)
+
+            # Deliver into a template
+            ctx['cat_tree'] = mark_safe(rend_tree)
+            return ctx
+
+To customise, AnchorStackTreeRenderer can be overridden like StackTreeRenderer.
 
 
 

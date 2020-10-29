@@ -5,21 +5,19 @@ from django.utils.safestring import mark_safe
 
 register = template.Library()
 
-
+# https://css-tricks.com/scale-svg/
 class StackedTreeRendererNode(template.Node):
     def __init__(self, tree_data, x_space, data_height):
+        self.renderer = StackTreeRenderer()
         self.tree_data = template.Variable(tree_data)
         self.x_space = int(x_space)
         self.data_height = int(data_height)
         
     def render(self, context):
-        renderer = StackTreeRenderer()
-        
-        r = renderer.rend_default( 
+        r = self.renderer.rend_default( 
             self.tree_data.resolve(context), 
             self.x_space, 
             self.data_height,
-            lambda e: e.title
             )
         return mark_safe(r)
 
