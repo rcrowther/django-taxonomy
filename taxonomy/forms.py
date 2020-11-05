@@ -1,5 +1,5 @@
 from django import forms
-from taxonomy.models import NodeParentBase
+from taxonomy.models import AbstractNodeParent
 
 
 
@@ -40,7 +40,7 @@ class NodeFormPartial(forms.ModelForm):
             # setup parent choices
             self.declared_fields['parent'].choices = self._meta.model.api.initial_choices()
             # ...then 'select' current parent
-            kwargs['initial']['parent'] = NodeParentBase.NO_PARENT
+            kwargs['initial']['parent'] = AbstractNodeParent.NO_PARENT
 
         super().__init__(*args, **kwargs)
         

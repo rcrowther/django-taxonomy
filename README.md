@@ -13,6 +13,13 @@ This app is called 'django-taxonomy', but internally the module is called 'taxon
 
 - [django-modelcluster](https://github.com/wagtail/django-modelcluster)
     This is a chunk of the Wagtail CMS. It allows you to join model objects together, even as they are created, then save in a chunk. Not quite the same thing as a taxonomy, but it does define relations between models, so if you are looking for that, it may be a fit.
+
+- [django-taxonomy](https://pypi.org/project/django_taxonomy/#files)
+    Still there as a package. Looks like it was intended as a Drupal port, long ago.
+
+- [django-treenav](https://djangopackages.org/packages/p/django-treenav/)
+    Makes interesting reading what is in it, but not sure what it is. I think it may do what this does? Not investigated too far.
+
  
 ## Why you may or may not want this app
 Pro
@@ -23,7 +30,7 @@ Pro
 Con
 - No multi-parent (node map) option
 - Poor at finding descendant elements, so poor the functionality has not been implemented
-- 500 lines of code but a lot of README
+- For 500 lines of code, a lot of README
 - tests [Ummm](#tests)
 
 If you want the standard, get [TreeBeard](https://github.com/django-treebeard/django-treebeard). If you are building a shopping site, you want an MPTT or maybe Treebeard's PathTree implementation. This is not that app.
@@ -36,9 +43,9 @@ I know it's unprofessional to think of performance, but I tried creating 30,000 
 ## Overview
 The app is called Taxonomy, because that's what it is, a vocabulary of terms. You might think of that as a tree of categories. However, I've used the common Python/Django word 'Node' for the categories.
 
-To make a tree of categories, Taxonomy has a model 'NodeBase'. You subclass 'NodeBase' to make a new Model. One Model/database table = one tree. 
+To make a tree of categories, Taxonomy has a model 'AbstractNode'. You subclass 'AbstractNode' to make a new Model. One Model/database table = one tree. 
 
-'NodeBase' can be extended with whatever data you want. So a Node (category) can be customised with descriptions, SEO material, external reference numbers, whatever you need to reference and present your material.
+'AbstractNode' can be extended with whatever data you want. So a Node (category) can be customised with descriptions, SEO material, external reference numbers, whatever you need to reference and present your material.
 
 'Node' is not a good name for end users. Whenever end users are concerned, I'd use the word 'category'. Even in the application help I use the word 'Category'.
 
@@ -80,12 +87,12 @@ and install. Either way, here is an example of a model declaration. This adds a 
         
     from django.db import models
     from django.urls import reverse
-    from taxonomy.models import NodeBase, NodeParentBase
+    from taxonomy.models import AbstractNode, AbstractNodeParent
     from taxonomy.api import NodeTreeAPI
 
 
 
-    class SiteCategory(NodeBase):
+    class SiteCategory(AbstractNode):
 
         # Not unique. Node names may be duplicated at different places in a 
         # hierarchy e.g. 'sports>news', 'local>news'. but it may save later
@@ -118,7 +125,7 @@ and install. Either way, here is an example of a model declaration. This adds a 
 
 
     # Always the same, but a new class needed for every taxonomy.
-    class SiteCategoryParent(NodeParentBase):
+    class SiteCategoryParent(AbstractNodeParent):
             pass
                     
 
@@ -161,13 +168,13 @@ There we are,
 ## The API
 As an app, Taxonomy is spread across DB tables which need code to manipulate them. The code is gathered into a manager. Since this is not the same as a Django (QuerySet) Manager, I've called it an API, not a manager. You'll use it for access to taxonomy data (unless you're hacking or have a broken installation).
 
-The api hangs off any object based on NodeBase, and can also be accessed from any NodeBase class. Using the model created above, SiteCategory,
+The api hangs off any object based on AbstractNode, and can also be accessed from any AbstractNode class. Using the model created above, SiteCategory,
 
     from sitecategory.models import SiteCategory
 
     api = SiteCategory.api
 
-The api is also present on any NodeBase object,
+The api is also present on any AbstractNode object,
 
     from sitecategory.models import SiteCategory
 
@@ -659,7 +666,9 @@ etc.
 
 
 ### Tests
-So far I have not found a way to test this app without Python ducktape. There are tests.  They are in a directory 'ttest'. To run the tests you must install django-taxonomy, then move 'ttests' to the top level. 'ttests' is a complete app. Install,
+So far I have not found a way to test this app without Python ducktape. There are tests.  They are in a directory 'ttest'. This is a full app.
+
+To run the tests you must install django-taxonomy, then move 'ttests' to the top level of a project. Install,
 
     
         INSTALLED_APPS = [
@@ -669,7 +678,7 @@ So far I have not found a way to test this app without Python ducktape. There ar
             ...
         ]
 
-...and migrate. The tests are in the sub-folder of 'ttests'.
+...and migrate. The tests are in the ''tests' sub-folder of 'ttests'.
 
 
 

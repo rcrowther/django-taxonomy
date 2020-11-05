@@ -4,7 +4,7 @@ from taxonomy.api import NodeTreeAPI
 from taxonomy import NO_PARENT
 
 
-class NodeBase(models.Model):
+class AbstractNode(models.Model):
 
     # A name field is required, or it creates some admin difficulties.
     # Not unique. The id is unique.
@@ -68,7 +68,7 @@ class NodeBase(models.Model):
         
         
 # Subclasses are unalatered, but a new one needed for every taxonomy.                
-class NodeParentBase(models.Model):
+class AbstractNodeParent(models.Model):
     '''
     Parent terms to other terms
     '''

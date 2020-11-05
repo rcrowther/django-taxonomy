@@ -2,12 +2,12 @@ from django.db import models
 from django.core import checks
 from django.urls import reverse
 from taxonomy.api import NodeTreeAPI
-from taxonomy.models import NodeBase, NodeParentBase
+from taxonomy.models import AbstractNode, AbstractNodeParent
 
 
 
 
-class TestCat(NodeBase):
+class TestCat(AbstractNode):
 
     # Not unique. Terms may be in different taxonomies. They may
     # be duplicated at different places in a hierarchy e.g. 'sports>news'
@@ -39,7 +39,7 @@ class TestCat(NodeBase):
 
 
 
-class TestCatParent(NodeParentBase):
+class TestCatParent(AbstractNodeParent):
         pass
                 
 
