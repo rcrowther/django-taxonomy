@@ -6,6 +6,7 @@
 Reparent_choices is a mess
 Test Multiple models
 Should have an exception catch on out-of-range ids?
+Default api to NO_PARENT
 
 == Admin
 Auto-slug

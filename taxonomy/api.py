@@ -103,7 +103,7 @@ class NodeMethods:
             nid = parent_map[nid]
         return b
         
-    def id_descendants(self):
+    def id_descendants(self, include_self=False):
         '''
         Category descendants
         The return is disorganised and does not structure for
@@ -119,6 +119,8 @@ class NodeMethods:
             nid = stack.pop()
             b.append(nid)
             stack.extend(list.copy(child_map[nid]))
+        if (include_self):
+            b.append(self.id)
         return b
 
     def ascendants(self):
