@@ -131,15 +131,15 @@ class NodeMethods:
         ascendants = self.id_ascendants()
         return [ node_map[nid] for nid in ascendants ]
         
-    def descendants(self):
+    def descendants(self, include_self=False):
         '''
         Disorganised collection of all descendants.
         '''
         node_map = self.cache.node_map()
-        descendants = self.id_descendants()
+        descendants = self.id_descendants(include_self)
         return [ node_map[nid] for nid in descendants ]
         
-    def depth_id_ascendant_path(self):
+    def depth_id_ascendant_path(self, exclude_self=False):
         '''
         Tree ascscendants
         return
@@ -157,6 +157,8 @@ class NodeMethods:
                 b.append(e)
                 base_depth -= 1
         b.reverse()
+        if (exclude_self):
+            b.pop()
         return b
 
     def depth_id_descendant_paths(self):
@@ -197,13 +199,13 @@ class NodeMethods:
             stack.append(b)            
         return stack
         
-    def ascendant_path(self):
+    def ascendant_path(self, exclude_self=False):
         '''
         Path of Categories 
             [Cat, ....], ordered from root to target category.
         '''
         node_map = self.cache.node_map()
-        path = self.depth_id_ascendant_path()
+        path = self.depth_id_ascendant_path(exclude_self)
         return [ node_map[e.nid] for e in path ]
     
     def descentant_paths(self):
