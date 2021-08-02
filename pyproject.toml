@@ -4,6 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
 module = "taxonomy"
+#version = "0.1.0"
 dist-name = "django-taxonomy2"
 author = "robert crowther"
 author-email = "rw.crowther@gmail.com"
