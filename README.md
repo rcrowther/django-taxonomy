@@ -1,4 +1,6 @@
 # Django Taxonomy
+> :warning: **Due to a name clash** This code is in Python repositories named as "django-taxonomy2".
+
 Create categories in a tree structure.
 
 This app is called 'django-taxonomy', but internally the module is called 'taxonomy'.
@@ -26,6 +28,7 @@ Pro
 - It's simple
 - Nodes (Categories) can be customised
 - It's got displays and Admin builtin 
+- Comprehensive and acessible API
 
 Con
 - No multi-parent (node map) option
@@ -63,7 +66,7 @@ I think that's all. Use the [API](#the-api) to access the taxonomy, and foreign 
 ## Install
 PyPi,
 
-    pip install django-taxonomy
+    pip install django-taxonomy2
 
 Or download the app code to Django.
 
