@@ -333,11 +333,25 @@ I would point out the above is not the only way. Objects can be recorded against
 
 
 ## Rendering
-There are a lot of options which are nothing to do with this app, they are conceptual. What do you want to render?
+First I want to say this, and am going to shout,
+
+> :warning: This app's rendering acilities are not a settled API and may in the future change
+
+Right, let's move forward. There are a lot of options which are nothing to do with this app, they are conceptual. What do you want to render?
+
+The overview of Django rendering is,
+- In a view, using the API, retrieve data from a taxonomy, then...
+- Render HTML immediately to push, throught the context, into the template, or...
+- Push data into a context then use template tags to semi-automatically render, or...
+- Render data in the template usuing template facilities
+Of these options, regading this module in particular, rendering in the view is the most flexible, but muddles logic and HTML. Template tags are tidiest, but inflecible and may need writing (which is time consuming for small efforts). As for using template facilities, the data returned by the API is complex, so may outreach the abilities of template rendering. 
+
+The app currently contains a few solutions.
+
 
 Let's say...
 
-### Breadcrumbs, plain display
+### Using template facilites for breadcrumbs
 You have a model linked to a taxonomy. 
  
 ![breadreumbs](screenshots/breadcrumb.png)
@@ -375,9 +389,187 @@ Then, in the template 'page_detail.html', render 'crumb_nodes'. Can do that expl
     </nav>
 
 Now do your CSS.
- 
 
-## URLs for Taxonomies 
+### Using the inline-templates
+There are several pieces of code used to render taxonomy data directly in a view. These are all in 'inline-templates.py'. The current renderers are,
+
+- FlatTreeRenderer
+- FlatTreeRendererAsLinks
+- NodeListRenderer
+- NodeListRendererAsLinks
+The base methods generate text displays, the ...AsLinks subvlasses generate HTML anchors.
+
+The classes are used by generating an instance, then calling the method rend() with some data. Showing two of the vlasses at work, in a view put something like this,
+
+        tree = ArticleCategory.api.tree()
+        tr = FlatTreeRendererAsLinks()
+        rend_tree = tr.rend(
+            tree, 
+            list_attrs={'class':"category-tree"}, 
+            data_attrs={'class':"category-anchor"}
+            )
+        ctx['category_tree'] = mark_safe(rend_tree)
+        
+        crumb = ArticleCategory.api(id=7).ascendant_path()
+        nr = NodeListRendererAsLinks()
+        rend_breadcrumb = nr.rend(
+            crumb,
+            data_attrs={'class':"bc-anchor"}
+            )
+        ctx['breadcrumb'] = mark_safe(rend_breadcrumb)
+
+Then in the view template summon the template variables. Note that, like Djano form rendering, the template must provide the surrounding HTML list element declarations,
+
+    <ul class="breadcrumb">
+        {{ breadcrumb }}
+    </ul>
+    <ul class="toc toc-list groove">
+        {{ category_tree }}
+    </ul>
+
+That's it. 
+
+
+
+
+### Extra (unsupported) render code
+There are several other pieces of code for rendering. All are working, all are not completed or unified, so may be changed in the future.
+
+#### Flat Trees
+Trees made of node data plus a depth. As used in the selector boxes in admin.
+
+![Flat Tree](screenshots/anchor_flat_tree.png)
+
+The tags and classes return HTML.
+
+
+##### FlatTreeRendererMark
+Renders a tree, but depth is indicate by a flexible mark, not nested HTML lists,
+
+
+##### AnchorFlatTreeRendererMark
+A FlatTreeRendererMark rendered with anchors e.g.
+
+
+    from django.utils.safestring import mark_safe
+    from taxonomy.models import SiteCategoryNode
+    from taxonomy.inline_templates import AnchorFlatTreeRenderer
+
+
+
+    class CategoryDetailView(DetailView):
+        ...
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+            tree = Category.api.tree()
+            tr=AnchorFlatTreeRenderer()
+            rend_tree = tr.rend(tree)
+            ctx['nav_tree'] = mark_safe(rend_tree)
+            return ctx
+
+
+#### Stacked Trees
+Trees that display nodes on top of each other, extending downwards like roots on a plant.
+
+![Stacked Tree](screenshots/stack_tree.png)
+
+These displays use a lot of visual space. Only a small taxonomy can be displayed. And, as you can see, the classes and tags return SVG graphics. 
+
+
+##### StackTreeRenderer
+For example,
+
+    from django.utils.safestring import mark_safe
+    from taxonomy.models import SiteCategoryNode
+    from taxonomy.inline_templates import StackTreeRenderer
+
+
+
+    # lightly customise the renderer to colour the beam and stem marks
+    class PrettyStackTreeRenderer(StackTreeRenderer):
+       beam_style = 'stroke:darkseagreen;stroke-width:4;stroke-linecap:square;'
+       stem_style = 'stroke:darkseagreen;stroke-width:2;'
+
+
+
+    class CategoryDetailView(DetailView):
+        ...
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+
+            # Get a tree
+            tree = SiteCategoryNode.api.tree()
+
+            # Rend
+            tr = PrettyStackTreeRenderer()
+            rend_tree = tr.rend_default(tree, 300, 12)
+
+            # Deliver into a template
+            ctx['cat_tree'] = mark_safe(rend_tree)
+            return ctx
+
+In the template,
+
+            {{ cat_tree }}
+
+To modify further, look at code. 'text_style', 'beam_style' and 'stem_style' can be overloaded (different colors/widths/cap-style). Use 'rend', instead of 'default_rend' to modify gaps and distances. Different data can printed by overloading 'get_context' and 'data_template'.
+
+##### AnchorStackTreeRenderer
+Inline SVG is live DOM code and can render working anchors,
+
+    from taxonomy.inline_templates import AnchorStackTreeRenderer
+
+    ...
+        def get_context_data(self, **kwargs):
+            ctx = super().get_context_data(**kwargs)
+
+            # Get a tree
+            tree = SiteCategoryNode.api.tree()
+
+            # Rend
+            tr = AnchorStackTreeRenderer()
+            rend_tree = tr.rend_default(tree, 300, 12)
+
+            # Deliver into a template
+            ctx['cat_tree'] = mark_safe(rend_tree)
+            return ctx
+
+To customise, AnchorStackTreeRenderer can be overridden like StackTreeRenderer.
+
+
+
+#### Notes on SVG graphics
+Notes,
+
+- The output image should auto-size into any webpage container it is placed in. Including browser resizing.
+- It is an image. Text size is fixed, and will not respond to page zoom 
+- After generation, the web delivery load is very low...
+- ...but the SVG image puts extra load on the receiving browser
+
+The render works by writing node data into boxes, which are laid out according to node hierarchy. To make text smaller, try make the 'x' size larger (which scales text down).
+
+#### Template tags
+There are several template tags which can deliver the treerenderers. Sorry, but I not worked them through.
+
+For rxample, there's a template tag that prints a depth tree in HTML. It is easy to use, though operation is limited,
+
+Use a view to send a tree (the usual depth-Node type),
+
+    from sitecategory.models import SiteCategory
+        ....
+        ctx['site_tree'] = SiteCategory.api.tree()
+
+Render that data in a template with this tag,
+
+    {% load taxonomy_displays %}
+        ...
+        {% flat_tree site_tree %}
+
+
+
+
+
+## Considering URLs for Taxonomies 
 What we mean by presenting a taxonomy to users is making URLs to point to nodes, then presenting nodes as a View.
 
 Not all taxonomies will need URLs. Taxonomies can be used for internal organisation. But a taxonomy with URLs can make the base of a site. For example, a few CMS now assume that pages on a site are organised as a tree.
@@ -505,150 +697,6 @@ Then maybe a reverse URL on the Category model. That would give in Admin a 'View
         return reverse('sitecategory_detail', kwargs={'slug': self.slug})
 
 Done.
-
-
-## Whole tree rendering
-It's not often you see a whole tree rendered. Think of those sitemap modules that are always written and never used. Still, you may have reason for printing the tree, and there are ways to do that.
-
-### Flat Trees
-Trees made of node data plus a depth. As used in the selector boxes in admin.
-
-![Flat Tree](screenshots/anchor_flat_tree.png)
-
-The tags and classes return HTML.
-
-#### Template tags
-There's a template tag that prints a depth tree in HTML. It is easy to use, though operation is limited,
-
-Use a view to send a tree (the usual depth-Node type),
-
-    from sitecategory.models import SiteCategory
-        ....
-        ctx['site_tree'] = SiteCategory.api.tree()
-
-Render that data in a template with this tag,
-
-    {% load taxonomy_displays %}
-        ...
-        {% flat_tree site_tree %}
-
-
-#### FlatTreeRenderer
-The tag uses a class inline_templates.FlatTreeRenderer, which is more flexible than the tags. Because it's a renderer, if you use it directly you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind.
-
-
-#### Rendering Anchors
-A FlatTree can be rendered with anchors. There is no templatetag, so you will need to render in a View. Default setup assumes there is a 'slug' field on the node, and that the url_prefix is '/category/' e.g.
-
-
-    from django.utils.safestring import mark_safe
-    from taxonomy.models import SiteCategoryNode
-    from taxonomy.inline_templates import AnchorFlatTreeRenderer
-
-
-
-    class CategoryDetailView(DetailView):
-        ...
-        def get_context_data(self, **kwargs):
-            ctx = super().get_context_data(**kwargs)
-            tree = Category.api.tree()
-            tr=AnchorFlatTreeRenderer()
-            rend_tree = tr.rend(tree)
-            ctx['nav_tree'] = mark_safe(rend_tree)
-            return ctx
-
-
-### Stacked Trees
-Trees that display nodes on top of each other, extending downwards like roots on a plant.
-
-![Stacked Tree](screenshots/stack_tree.png)
-
-These displays use a lot of visual space. Only a small taxonomy can be displayed. And, as you can see, the classes and tags return SVG graphics. Notes,
-
-- The output image should auto-size into any webpage container it is placed in. Including browser resizing.
-- It is an image. Text size is fixed, and will not respond to page zoom 
-- After generation, the web delivery load is very low...
-- ...but the SVG image puts extra load on the receiving browser
-
-The render works by writing node data into boxes, which are laid out according to node hierarchy. To make text smaller, try make the 'x' size larger (which scales text down).
-
-#### Template tags
-There's a template tag that prints a tree in SVG. It is easy to use, though operation is limited.
-
-Use a view to send a tree (the usual depth-Node type),
-
-    from sitecategory.models import SiteCategory
-        ....
-        ctx['nav_tree'] = SiteCategory.api.tree()
-
-Then render that data with this tag,
-
-    {% load taxonomy_displays %}
-        ...
-        {% stacked_tree nav_tree 300 12 %}
-
-The parameters are for width and height, you probably need to tweak them.
-
-
-#### StackTreeRenderer
-The tags use a class inline_templates.Stacktree, which is more flexible than the tags. Because it's a renderer, if you use it directly you will render blocks inside the views, bypassing the Django template engine. But maybe you don't mind. This is naive, to be explicit,
-
-    from django.utils.safestring import mark_safe
-    from taxonomy.models import SiteCategoryNode
-    from taxonomy.inline_templates import StackTreeRenderer
-
-
-
-    # lightly customise the renderer to colour the beam and stem marks
-    class PrettyStackTreeRenderer(StackTreeRenderer):
-       beam_style = 'stroke:darkseagreen;stroke-width:4;stroke-linecap:square;'
-       stem_style = 'stroke:darkseagreen;stroke-width:2;'
-
-
-
-    class CategoryDetailView(DetailView):
-        ...
-        def get_context_data(self, **kwargs):
-            ctx = super().get_context_data(**kwargs)
-
-            # Get a tree
-            tree = SiteCategoryNode.api.tree()
-
-            # Rend
-            tr = PrettyStackTreeRenderer()
-            rend_tree = tr.rend_default(tree, 300, 12)
-
-            # Deliver into a template
-            ctx['cat_tree'] = mark_safe(rend_tree)
-            return ctx
-
-In the template,
-
-            {{ cat_tree }}
-
-To modify further, look at code. 'text_style', 'beam_style' and 'stem_style' can be overloaded (different colors/widths/cap-style). Use 'rend', instead of 'default_rend' to modify gaps and distances. Different data can printed by overloading 'get_context' and 'data_template'.
-
-#### Rendering Anchors
-Inline SVG is live DOM code. So a StackTree can be rendered with anchors (!). There is no templatetag, because this implies Java levels of insanity, so you will need to render in a View. Default setup assumes there is a 'slug' field on the node, and that the url_prefix is '/category/',
-
-    from taxonomy.inline_templates import AnchorStackTreeRenderer
-
-    ...
-        def get_context_data(self, **kwargs):
-            ctx = super().get_context_data(**kwargs)
-
-            # Get a tree
-            tree = SiteCategoryNode.api.tree()
-
-            # Rend
-            tr = AnchorStackTreeRenderer()
-            rend_tree = tr.rend_default(tree, 300, 12)
-
-            # Deliver into a template
-            ctx['cat_tree'] = mark_safe(rend_tree)
-            return ctx
-
-To customise, AnchorStackTreeRenderer can be overridden like StackTreeRenderer.
 
 
 

@@ -6,6 +6,139 @@ from taxonomy import BIG_DEPTH
 
 
 
+from django.forms.utils import flatatt
+
+# NEW
+class FlatTreeRenderer():
+    '''
+    Render a tree  as list items with depth as sublists
+    Template needs to add outer list elements.
+    '''
+    sublist_attrs={}
+    listitem_attrs={}
+    data_attrs={}
+    
+    def data_template(self, data, dataattr_str):
+        return data.name
+            
+    def rend(self, 
+        tree, 
+        sublist_attrs={},
+        listitem_attrs={},
+        data_attrs={}
+        ):
+        '''
+        tree
+            [(depth, Term)]
+        '''
+        self.sublist_attrs.update(sublist_attrs)
+        self.listitem_attrs.update(listitem_attrs)
+        self.data_attrs.update(data_attrs)
+        b = []
+        prev_depth = 0
+        list_str = '<ul {} />'.format(flatatt(self.sublist_attrs))
+        listitem_str = '<li {} />'.format(flatatt(self.listitem_attrs))
+        dataattr_str = '{}'.format(flatatt(self.data_attrs))
+
+        for depth, data in tree:
+            rend_data = self.data_template(data, dataattr_str) 
+            if (prev_depth == depth):
+                b.append(listitem_str)
+                b.append(rend_data)
+                b.append('</li>')
+            elif (prev_depth < depth):
+                # 9492,'u25114'' 9472 '\u2500'
+                b.append(list_str)
+                b.append(listitem_str)
+                b.append(rend_data)
+                b.append('</li>')
+            else:
+                i = prev_depth - depth
+                while (i > 0):
+                    b.append('</ul>')
+                    i -= 1
+                b.append(listitem_str)
+                b.append(rend_data)
+                b.append('</li>')            
+            prev_depth = depth
+        return ''.join(b)
+              
+class FlatTreeRendererAsLinks(FlatTreeRenderer):
+    '''
+    Render a tree  as list items containing anchors, with depth as 
+    sublists.
+    Template needs to add outer list elements.
+    '''
+    url_prefix ='/category/'
+
+    def data_template(self, 
+        data,
+        dataattr_str
+        ):
+        return '<a href="{url_prefix}{url_id}" {attrs}>{text}</a>'.format(
+            url_prefix=self.url_prefix,
+            #! probably not escape, but something else to protect URLs
+            url_id = data.slug,
+            attrs = dataattr_str,
+            text= html.escape(data.name),
+        )
+
+
+
+class NodeListRenderer():
+    '''
+    Render a node list as list items.
+    Template needs to add outer list elements.
+    '''
+    listitem_attrs={}
+    data_attrs={}
+    
+    def data_template(self, data, dataattr_str):
+        return data.name
+
+    def rend(self, 
+        node_list, 
+        listitem_attrs={},
+        data_attrs={}
+        ):
+        '''
+        node_list
+            [taxonomy_nodes]
+        '''
+        self.listitem_attrs.update(listitem_attrs)
+        self.data_attrs.update(data_attrs)
+        b = []
+        listitem_str = '<li {} />'.format(flatatt(self.listitem_attrs))
+        dataattr_str = '{}'.format(flatatt(self.data_attrs))
+        for e in node_list:
+            b.append(listitem_str)
+            b.append(self.data_template(e, dataattr_str))
+            b.append('</li>')
+        return ''.join(b)    
+
+
+
+class NodeListRendererAsLinks(NodeListRenderer):
+    '''
+    Render a node list as list items containing anchors.
+    Template needs to add outer list elements.
+    '''
+    url_prefix ='/category/'
+
+    def data_template(self, 
+        data,
+        dataattr_str
+        ):
+        return '<a href="{url_prefix}{url_id}" {attrs}>{text}</a>'.format(
+            url_prefix=self.url_prefix,
+            #! probably not escape, but something else to protect URLs
+            url_id = data.slug,
+            attrs = dataattr_str,
+            text = html.escape(data.name),
+        )
+             
+# OLD
+
 ## code-level templates
 class AnchorNodeListRenderer():
     url_prefix ='/category/'
@@ -41,7 +174,10 @@ class AnchorNodeListRenderer():
 
     
 #? add attributes for wrapping tags.
-class FlatTreeRenderer():
+class FlatTreeRendererMark():
+    '''
+    Render a tree  as list items with depth indications
+    '''
     def data_template(self, ctx):
         return ctx['text']
 
@@ -73,10 +209,8 @@ class FlatTreeRenderer():
             b.append('</li>')
         b.append('</ul>')
         return ''.join(b)
-    
 
-      
-class AnchorFlatTreeRenderer(FlatTreeRenderer):
+class AnchorFlatTreeRendererMark(FlatTreeRendererMark):
     '''
     Requires the callback on the renders to deliver
     tuples [(href, text)]
@@ -96,9 +230,10 @@ class AnchorFlatTreeRenderer(FlatTreeRenderer):
             'text': html.escape(data.name),
             'url_prefix' : self.url_prefix,
             'url' : data.slug,
-        }
+        }    
 
-        
+
+   
     
 class StackTreeRenderer():
     '''

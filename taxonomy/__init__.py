@@ -1,5 +1,5 @@
 """Category tree for Django. Replicable and customizable. Includes Admin. Low on features, easy setup."""
-__version__ = '0.6.1'
+__version__ = '1.0.0'
 
 UNCATEGORIZED = -1
 NO_PARENT = -1
