@@ -111,6 +111,7 @@ class NodeListRenderer():
 
     def rend(self, 
         node_list, 
+        add_home="",
         listitem_attrs={},
         data_attrs={}
         ):
@@ -123,6 +124,13 @@ class NodeListRenderer():
         b = []
         listitem_str = '<li {} />'.format(flatatt(self.listitem_attrs))
         dataattr_str = '{}'.format(flatatt(self.data_attrs))
+        if (add_home):
+            b.append(listitem_str)
+            b.append('<a href="/" {attrs}>{text}</a>'.format(
+                text=add_home,
+                attrs=dataattr_str
+            ))
+            b.append('</li>')            
         for e in node_list:
             b.append(listitem_str)
             b.append(self.data_template(e, dataattr_str))
