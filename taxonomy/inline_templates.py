@@ -6,8 +6,6 @@ from taxonomy import BIG_DEPTH
 
 
 
-from django.forms.utils import flatatt
-
 # NEW
 class FlatTreeRenderer():
     '''
@@ -39,29 +37,44 @@ class FlatTreeRenderer():
         list_str = '<ul {} />'.format(flatatt(self.sublist_attrs))
         listitem_str = '<li {} />'.format(flatatt(self.listitem_attrs))
         dataattr_str = '{}'.format(flatatt(self.data_attrs))
-
+        first_item = True
+        
         for depth, data in tree:
             rend_data = self.data_template(data, dataattr_str) 
             if (prev_depth == depth):
+                if (first_item == False):
+                    b.append('</li>')
+                else:
+                    first_item = False
                 b.append(listitem_str)
                 b.append(rend_data)
-                b.append('</li>')
             elif (prev_depth < depth):
-                # 9492,'u25114'' 9472 '\u2500'
                 b.append(list_str)
                 b.append(listitem_str)
                 b.append(rend_data)
-                b.append('</li>')
             else:
+                b.append('</li>')
                 i = prev_depth - depth
                 while (i > 0):
                     b.append('</ul>')
+                    b.append('</li>')
                     i -= 1
                 b.append(listitem_str)
                 b.append(rend_data)
-                b.append('</li>')            
             prev_depth = depth
+
+        # close what we are on
+        b.append('</li>')            
+            
+        # Need close codes for unclosed depths (likely!)
+        while (prev_depth > 0):
+            b.append('</ul>')
+            b.append('</li>')
+            prev_depth -= 1            
+            
         return ''.join(b)
+           
+           
               
 class FlatTreeRendererAsLinks(FlatTreeRenderer):
     '''
@@ -136,6 +149,9 @@ class NodeListRendererAsLinks(NodeListRenderer):
             attrs = dataattr_str,
             text = html.escape(data.name),
         )
+           
+           
+           
              
 # OLD
 
